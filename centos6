@@ -1,0 +1,780 @@
+#
+# Kickstart pro CentOS-6.0-x86_64-minimal.iso
+#
+
+#
+# Zakladni konfiguracni parametry
+#
+#version=RHEL6
+install
+cmdline
+cdrom
+lang en_US.UTF-8
+keyboard us
+network --device eth0 --bootproto dhcp
+firewall --service=ssh
+rootpw --iscrypted $6$rDhDP5jWWwmnWBFC$pPt3OXTnWPK7pVE07Aq4PImrNLxPnMJ7rWOKme7uIPI/2t5V01.EwgLM61WRwLbabKEs5rxkLECl6RYTR9gNI.
+authconfig --enableshadow --passalgo=sha512 --enablefingerprint
+selinux --permissive
+timezone --utc Europe/Prague
+bootloader --location=mbr --driveorder=sda --append="crashkernel=auto rhgb quiet"
+reboot
+
+#
+# Rozdeleni disku
+#
+clearpart --linux --drives=sda --initlabel
+part pv.01 --grow --size 8000 --ondisk=sda
+part /boot --fstype=ext4 --size=500
+volgroup VolGroup --pesize=4096 pv.01
+logvol / --fstype=ext4 --name=lv_root --vgname=VolGroup --grow --size=1024 --maxsize=51200
+logvol swap --name=lv_swap --vgname=VolGroup --grow --size=1008 --maxsize=2016
+
+#
+# Zdroj instalace
+#
+repo --name="CentOS" --baseurl=file:///mnt/source --cost=100
+
+#
+# Minimalisticka instalace
+#
+%packages --nobase
+@core
+%end
+
+#
+# Post-instalacni skript
+#
+%post --log=/var/log/post-install-script.log
+# Prechod na TTY6
+exec < /dev/tty6 > /dev/tty6
+chvt 6
+
+# Jeste jednou si dame dhclienta
+dhclient eth0
+
+# Pridani repozitaru
+BASEARCH=`uname -i`
+rpm -Uhv \
+http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.$BASEARCH.rpm \
+http://repository.vsb.cz/hrb33/el6/hrb/stable/$BASEARCH/hrb-release-0.1-5.el6.hrb.$BASEARCH.rpm \
+http://spacewalk.redhat.com/yum/1.5/RHEL/6/$BASEARCH/spacewalk-client-repo-1.5-1.el6.noarch.rpm
+
+# Aktualizace a instalace balicku
+yum -y update
+yum -y install \
+apg \
+bind-utils \
+centos-release-cr \
+cronie \
+etckeeper \
+htop \
+iftop \
+logwatch \
+man \
+mc \
+mlocate \
+nscd \
+nss-pam-ldapd \
+ntp \
+openldap-clients \
+pam_ldap \
+patch \
+pciutils \
+perl \
+postfix \
+rsync \
+tcpdump \
+telnet \
+vim \
+wget
+
+# Registrace do Spacewalku
+yum -y install \
+rhn-client-tools \
+rhn-check \
+rhn-setup \
+rhnsd \
+m2crypto \
+yum-rhn-plugin
+rhnreg_ks --serverUrl=http://spacewalk.vsb.cz/XMLRPC --activationkey=1-c6-$BASEARCH
+
+# Instalace OSAD
+yum -y install osad
+sed -i "s|\(osa_ssl_cert = \).*|\1/usr/share/rhn/RHN-ORG-TRUSTED-SSL-CERT|" /etc/sysconfig/rhn/osad.conf
+cd /usr/share/rhn/ && wget -q http://spacewalk.vsb.cz/pub/RHN-ORG-TRUSTED-SSL-CERT
+
+# Odinstalace zbytecnosti
+yum -y remove \
+device-mapper-multipath \
+iscsi-initiator-utils \
+libcgroup \
+lldpad \
+rpcbind
+
+# Nastaveni sluzeb
+chkconfig fcoe off
+chkconfig iscsid off
+chkconfig iscsi off
+chkconfig lldpad off
+chkconfig ntpd on
+chkconfig osad on
+chkconfig rpcbind off
+chkconfig rpcgssd off
+chkconfig rpcidmapd off
+
+# Zapis jistych rc konfiguraci v adresari /root/
+echo "alias l='ls -al'" >> /root/.bashrc
+cat >> /root/.inputrc << EOF
+"\e[A": history-search-backward
+"\e[B": history-search-forward
+EOF
+cat >> /root/.vimrc << EOF
+set hls
+set nomodeline
+set nowrap
+set ru
+syntax on
+EOF
+
+# Vytvoreni bin adresare pro roota
+mkdir /root/bin
+
+# SSH
+mkdir /root/.ssh
+touch /root/.ssh/authorized_keys
+chmod -R go-rwx /root/.ssh
+
+# Skript po prvnim prihlaseni roota
+cat >> /root/.bashrc << EOF_BASHRC
+# FIRST-ROOT-LOGIN-SCRIPT-BEGIN
+function yes_no ( ) {
+        read -p "\$1 (A/N/a/n)? " YES_NO
+        [ "\$YES_NO" = "A" ] || [ "\$YES_NO" = "a" ] && return 0
+        [ "\$YES_NO" = "N" ] || [ "\$YES_NO" = "n" ] && return 1
+        yes_no \$1
+}
+# Zmena hesla
+read -p "Po stisknuti klavesy <ENTER> zadejte prosim nove heslo uzivatele root." FOO
+passwd
+# Mount pro /home
+#echo "/dev/sdb /home xfs rw 0 0" >> /etc/fstab
+# Postfix aliasy
+read -p "Postfix root alias/-y oddelene carkou: " ALIASES
+sed -i "s/^#\(root:\).*/\1 \$ALIASES/" /etc/aliases
+newaliases
+# Nastaveni autentizace
+if yes_no "Nakonfigurovat prihlasovani LDAPem k tomuto systemu" ; then
+	patch -d /etc -p2 << EOF
+--- /etc~/nslcd.conf	2011-08-29 13:26:09.704677244 +0200
++++ /etc/nslcd.conf	2011-08-29 13:29:00.485441945 +0200
+@@ -56,7 +56,7 @@
+ 
+ # Use StartTLS without verifying the server certificate.
+ #ssl start_tls
+-#tls_reqcert never
++tls_reqcert never
+ 
+ # CA certificates for server certificate verification
+ #tls_cacertdir /etc/ssl/certs
+@@ -128,5 +128,6 @@
+ uid nslcd
+ gid ldap
+ # This comment prevents repeated auto-migration of settings.
+-uri ldap://127.0.0.1/
+-base dc=example,dc=com
++uri ldaps://ldap.vsb.cz/
++base ou=USERS,o=VSB
++ssl on
+diff -ur /etc~/nsswitch.conf /etc/nsswitch.conf
+--- /etc~/nsswitch.conf	2010-05-04 21:22:21.000000000 +0200
++++ /etc/nsswitch.conf	2011-08-29 13:29:00.670454951 +0200
+@@ -30,9 +30,9 @@
+ #shadow:    db files nisplus nis
+ #group:     db files nisplus nis
+ 
+-passwd:     files
+-shadow:     files
+-group:      files
++passwd:     files ldap
++shadow:     files ldap
++group:      files ldap
+ 
+ #hosts:     db files nisplus nis dns
+ hosts:      files dns
+@@ -54,10 +54,10 @@
+ rpc:        files
+ services:   files
+ 
+-netgroup:   nisplus
++netgroup:   files ldap
+ 
+ publickey:  nisplus
+ 
+-automount:  files nisplus
++automount:  files ldap
+ aliases:    files nisplus
+ 
+diff -ur /etc~/openldap/ldap.conf /etc/openldap/ldap.conf
+--- /etc~/openldap/ldap.conf	2011-06-25 12:30:46.000000000 +0200
++++ /etc/openldap/ldap.conf	2011-08-29 13:29:00.500448283 +0200
+@@ -11,3 +11,5 @@
+ #SIZELIMIT	12
+ #TIMELIMIT	15
+ #DEREF		never
++URI ldaps://ldap.vsb.cz:636/
++TLS_REQCERT never
+diff -ur /etc~/pam.d/fingerprint-auth /etc/pam.d/fingerprint-auth
+--- /etc~/pam.d/fingerprint-auth	2011-08-29 13:22:02.294661068 +0200
++++ /etc/pam.d/fingerprint-auth	2011-08-29 13:29:00.718446718 +0200
+@@ -5,9 +5,10 @@
+ auth        sufficient    pam_fprintd.so
+ auth        required      pam_deny.so
+ 
+-account     required      pam_unix.so
++account     required      pam_unix.so broken_shadow
+ account     sufficient    pam_localuser.so
+ account     sufficient    pam_succeed_if.so uid < 500 quiet
++account     [default=bad success=ok user_unknown=ignore] pam_ldap.so
+ account     required      pam_permit.so
+ 
+ password    required      pam_deny.so
+@@ -16,3 +17,4 @@
+ session     required      pam_limits.so
+ session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+ session     required      pam_unix.so
++session     optional      pam_ldap.so
+diff -ur /etc~/pam.d/fingerprint-auth-ac /etc/pam.d/fingerprint-auth-ac
+--- /etc~/pam.d/fingerprint-auth-ac	2011-08-29 13:22:02.294661068 +0200
++++ /etc/pam.d/fingerprint-auth-ac	2011-08-29 13:29:00.718446718 +0200
+@@ -5,9 +5,10 @@
+ auth        sufficient    pam_fprintd.so
+ auth        required      pam_deny.so
+ 
+-account     required      pam_unix.so
++account     required      pam_unix.so broken_shadow
+ account     sufficient    pam_localuser.so
+ account     sufficient    pam_succeed_if.so uid < 500 quiet
++account     [default=bad success=ok user_unknown=ignore] pam_ldap.so
+ account     required      pam_permit.so
+ 
+ password    required      pam_deny.so
+@@ -16,3 +17,4 @@
+ session     required      pam_limits.so
+ session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+ session     required      pam_unix.so
++session     optional      pam_ldap.so
+diff -ur /etc~/pam.d/password-auth /etc/pam.d/password-auth
+--- /etc~/pam.d/password-auth	2011-08-29 13:22:02.277661026 +0200
++++ /etc/pam.d/password-auth	2011-08-29 13:29:00.702449551 +0200
+@@ -4,18 +4,22 @@
+ auth        required      pam_env.so
+ auth        sufficient    pam_unix.so nullok try_first_pass
+ auth        requisite     pam_succeed_if.so uid >= 500 quiet
++auth        sufficient    pam_ldap.so use_first_pass
+ auth        required      pam_deny.so
+ 
+-account     required      pam_unix.so
++account     required      pam_unix.so broken_shadow
+ account     sufficient    pam_localuser.so
+ account     sufficient    pam_succeed_if.so uid < 500 quiet
++account     [default=bad success=ok user_unknown=ignore] pam_ldap.so
+ account     required      pam_permit.so
+ 
+ password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+ password    sufficient    pam_unix.so sha512 shadow nullok try_first_pass use_authtok
++password    sufficient    pam_ldap.so use_authtok
+ password    required      pam_deny.so
+ 
+ session     optional      pam_keyinit.so revoke
+ session     required      pam_limits.so
+ session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+ session     required      pam_unix.so
++session     optional      pam_ldap.so
+diff -ur /etc~/pam.d/password-auth-ac /etc/pam.d/password-auth-ac
+--- /etc~/pam.d/password-auth-ac	2011-08-29 13:22:02.277661026 +0200
++++ /etc/pam.d/password-auth-ac	2011-08-29 13:29:00.702449551 +0200
+@@ -4,18 +4,22 @@
+ auth        required      pam_env.so
+ auth        sufficient    pam_unix.so nullok try_first_pass
+ auth        requisite     pam_succeed_if.so uid >= 500 quiet
++auth        sufficient    pam_ldap.so use_first_pass
+ auth        required      pam_deny.so
+ 
+-account     required      pam_unix.so
++account     required      pam_unix.so broken_shadow
+ account     sufficient    pam_localuser.so
+ account     sufficient    pam_succeed_if.so uid < 500 quiet
++account     [default=bad success=ok user_unknown=ignore] pam_ldap.so
+ account     required      pam_permit.so
+ 
+ password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+ password    sufficient    pam_unix.so sha512 shadow nullok try_first_pass use_authtok
++password    sufficient    pam_ldap.so use_authtok
+ password    required      pam_deny.so
+ 
+ session     optional      pam_keyinit.so revoke
+ session     required      pam_limits.so
+ session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+ session     required      pam_unix.so
++session     optional      pam_ldap.so
+diff -ur /etc~/pam.d/smartcard-auth /etc/pam.d/smartcard-auth
+--- /etc~/pam.d/smartcard-auth	2011-08-29 13:22:02.310657696 +0200
++++ /etc/pam.d/smartcard-auth	2011-08-29 13:29:00.733449622 +0200
+@@ -5,9 +5,10 @@
+ auth        [success=done ignore=ignore default=die] pam_pkcs11.so wait_for_card card_only
+ auth        required      pam_deny.so
+ 
+-account     required      pam_unix.so
++account     required      pam_unix.so broken_shadow
+ account     sufficient    pam_localuser.so
+ account     sufficient    pam_succeed_if.so uid < 500 quiet
++account     [default=bad success=ok user_unknown=ignore] pam_ldap.so
+ account     required      pam_permit.so
+ 
+ password    required      pam_pkcs11.so
+@@ -16,3 +17,4 @@
+ session     required      pam_limits.so
+ session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+ session     required      pam_unix.so
++session     optional      pam_ldap.so
+diff -ur /etc~/pam.d/smartcard-auth-ac /etc/pam.d/smartcard-auth-ac
+--- /etc~/pam.d/smartcard-auth-ac	2011-08-29 13:22:02.310657696 +0200
++++ /etc/pam.d/smartcard-auth-ac	2011-08-29 13:29:00.733449622 +0200
+@@ -5,9 +5,10 @@
+ auth        [success=done ignore=ignore default=die] pam_pkcs11.so wait_for_card card_only
+ auth        required      pam_deny.so
+ 
+-account     required      pam_unix.so
++account     required      pam_unix.so broken_shadow
+ account     sufficient    pam_localuser.so
+ account     sufficient    pam_succeed_if.so uid < 500 quiet
++account     [default=bad success=ok user_unknown=ignore] pam_ldap.so
+ account     required      pam_permit.so
+ 
+ password    required      pam_pkcs11.so
+@@ -16,3 +17,4 @@
+ session     required      pam_limits.so
+ session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+ session     required      pam_unix.so
++session     optional      pam_ldap.so
+diff -ur /etc~/pam.d/system-auth /etc/pam.d/system-auth
+--- /etc~/pam.d/system-auth	2011-08-29 13:22:02.251652415 +0200
++++ /etc/pam.d/system-auth	2011-08-29 13:29:00.687451687 +0200
+@@ -5,18 +5,22 @@
+ auth        sufficient    pam_fprintd.so
+ auth        sufficient    pam_unix.so nullok try_first_pass
+ auth        requisite     pam_succeed_if.so uid >= 500 quiet
++auth        sufficient    pam_ldap.so use_first_pass
+ auth        required      pam_deny.so
+ 
+-account     required      pam_unix.so
++account     required      pam_unix.so broken_shadow
+ account     sufficient    pam_localuser.so
+ account     sufficient    pam_succeed_if.so uid < 500 quiet
++account     [default=bad success=ok user_unknown=ignore] pam_ldap.so
+ account     required      pam_permit.so
+ 
+ password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+ password    sufficient    pam_unix.so sha512 shadow nullok try_first_pass use_authtok
++password    sufficient    pam_ldap.so use_authtok
+ password    required      pam_deny.so
+ 
+ session     optional      pam_keyinit.so revoke
+ session     required      pam_limits.so
+ session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+ session     required      pam_unix.so
++session     optional      pam_ldap.so
+diff -ur /etc~/pam.d/system-auth-ac /etc/pam.d/system-auth-ac
+--- /etc~/pam.d/system-auth-ac	2011-08-29 13:22:02.251652415 +0200
++++ /etc/pam.d/system-auth-ac	2011-08-29 13:29:00.687451687 +0200
+@@ -5,18 +5,22 @@
+ auth        sufficient    pam_fprintd.so
+ auth        sufficient    pam_unix.so nullok try_first_pass
+ auth        requisite     pam_succeed_if.so uid >= 500 quiet
++auth        sufficient    pam_ldap.so use_first_pass
+ auth        required      pam_deny.so
+ 
+-account     required      pam_unix.so
++account     required      pam_unix.so broken_shadow
+ account     sufficient    pam_localuser.so
+ account     sufficient    pam_succeed_if.so uid < 500 quiet
++account     [default=bad success=ok user_unknown=ignore] pam_ldap.so
+ account     required      pam_permit.so
+ 
+ password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+ password    sufficient    pam_unix.so sha512 shadow nullok try_first_pass use_authtok
++password    sufficient    pam_ldap.so use_authtok
+ password    required      pam_deny.so
+ 
+ session     optional      pam_keyinit.so revoke
+ session     required      pam_limits.so
+ session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+ session     required      pam_unix.so
++session     optional      pam_ldap.so
+diff -ur /etc~/pam_ldap.conf /etc/pam_ldap.conf
+--- /etc~/pam_ldap.conf	2010-08-23 08:00:38.000000000 +0200
++++ /etc/pam_ldap.conf	2011-08-29 13:29:00.468445175 +0200
+@@ -14,10 +14,10 @@
+ # space. How long nss_ldap takes to failover depends on
+ # whether your LDAP client library supports configurable
+ # network or connect timeouts (see bind_timelimit).
+-host 127.0.0.1
++#host 127.0.0.1
+ 
+ # The distinguished name of the search base.
+-base dc=example,dc=com
++base ou=USERS,o=VSB
+ 
+ # Another way to specify your LDAP server is to provide an
+ # uri with the server name. This allows to use
+@@ -102,8 +102,8 @@
+ #pam_member_attribute uniquemember
+ 
+ # Specify a minium or maximum UID number allowed
+-#pam_min_uid 0
+-#pam_max_uid 0
++pam_min_uid 9500
++pam_max_uid 65000
+ 
+ # Template login attribute, default template user
+ # (can be overriden by value of former attribute
+@@ -287,3 +287,5 @@
+ # SASL mechanism for PAM authentication - use is experimental
+ # at present and does not support password policy control
+ #pam_sasl_mech DIGEST-MD5
++uri ldaps://ldap.vsb.cz:636/
++ssl on
+diff -ur /etc~/sysconfig/authconfig /etc/sysconfig/authconfig
+--- /etc~/sysconfig/authconfig	2011-08-29 13:22:02.319662809 +0200
++++ /etc/sysconfig/authconfig	2011-08-29 13:29:00.742441190 +0200
+@@ -4,21 +4,21 @@
+ USESSSDAUTH=no
+ USESHADOW=yes
+ USEWINBIND=no
+-USEDB=no
++USESSSD=no
++PASSWDALGORITHM=sha512
+ FORCELEGACY=no
+ USEFPRINTD=yes
++USEHESIOD=no
+ FORCESMARTCARD=no
+-PASSWDALGORITHM=sha512
+-USELDAPAUTH=no
+-USEPASSWDQC=no
+-USELOCAUTHORIZE=yes
++USELDAPAUTH=yes
++USELDAP=yes
+ USECRACKLIB=yes
+ USEWINBINDAUTH=no
+ USESMARTCARD=no
+-USELDAP=no
++USELOCAUTHORIZE=yes
+ USENIS=no
+ USEKERBEROS=no
+ USESYSNETAUTH=no
+ USESMBAUTH=no
+-USESSSD=no
+-USEHESIOD=no
++USEDB=no
++USEPASSWDQC=no
+EOF
+	chkconfig nscd on
+	chkconfig nslcd on
+	/etc/init.d/nscd start
+	/etc/init.d/nslcd start
+	/etc/init.d/sshd reload
+fi
+if yes_no "Nainstalovat Apache + PHP" ; then
+	yum -y install httpd mod_ssl php
+	chkconfig httpd on
+	patch /etc/httpd/conf/httpd.conf << EOF
+--- /etc/httpd/conf/httpd.conf~ 2011-10-24 10:55:29.036423262 +0200
++++ /etc/httpd/conf/httpd.conf  2011-10-24 10:58:13.759433255 +0200
+@@ -41,7 +41,7 @@
+ # Don't give away too much information about all the subcomponents
+ # we are running.  Comment out this line if you don't mind remote sites
+ # finding out what major optional modules you are running
+-ServerTokens OS
++ServerTokens Prod
+ 
+ #
+ # ServerRoot: The top of the directory tree under which the server's
+@@ -225,7 +225,7 @@
+ # information (ExtendedStatus On) or just basic information (ExtendedStatus
+ # Off) when the "server-status" handler is called. The default is Off.
+ #
+-#ExtendedStatus On
++ExtendedStatus On
+ 
+ #
+ # If you wish httpd to run as a different user or group, you must run
+@@ -399,7 +399,7 @@
+ # negotiated documents.  The MultiViews Option can be used for the 
+ # same purpose, but it is much slower.
+ #
+-DirectoryIndex index.html index.html.var
++DirectoryIndex index.html index.html.var index.php
+ 
+ #
+ # AccessFileName: The name of the file to look for in each directory
+@@ -533,7 +533,7 @@
+ # Set to "EMail" to also include a mailto: link to the ServerAdmin.
+ # Set to one of:  On | Off | EMail
+ #
+-ServerSignature On
++ServerSignature Off
+ 
+ #
+ # Aliases: Add here as many aliases as you need (with no limit). The format is 
+@@ -740,7 +740,7 @@
+ # Just list the languages in decreasing order of preference. We have
+ # more or less alphabetized them here. You probably want to change this.
+ #
+-LanguagePriority en ca cs da de el eo es et fr he hr it ja ko ltz nl nn no pl pt pt-BR ru sv zh-CN zh-TW
++LanguagePriority cs en ca da de el eo es et fr he hr it ja ko ltz nl nn no pl pt pt-BR ru sv zh-CN zh-TW
+ 
+ #
+ # ForceLanguagePriority allows you to serve a result page rather than
+@@ -756,7 +756,7 @@
+ # in HTML content to override this choice, comment out this
+ # directive:
+ #
+-AddDefaultCharset UTF-8
++#AddDefaultCharset UTF-8
+ 
+ #
+ # AddType allows you to add to or override the MIME configuration
+@@ -834,6 +834,8 @@
+ #ErrorDocument 404 "/cgi-bin/missing_handler.pl"
+ #ErrorDocument 402 http://www.example.com/subscription_info.html
+ #
++ErrorDocument 403 http://webresources.vsb.cz/v2/vsb/errors/403.html
++ErrorDocument 404 http://webresources.vsb.cz/v2/vsb/errors/404.html
+ 
+ #
+ # Putting this all together, we can internationalize error responses.
+@@ -918,24 +920,24 @@
+ # with the URL of http://servername/server-status
+ # Change the ".example.com" to match your domain to enable.
+ #
+-#<Location /server-status>
+-#    SetHandler server-status
+-#    Order deny,allow
+-#    Deny from all
+-#    Allow from .example.com
+-#</Location>
++<Location /server-status>
++    SetHandler server-status
++    Order deny,allow
++    Deny from all
++    Allow from 127.0.0.1
++</Location>
+ 
+ #
+ # Allow remote server configuration reports, with the URL of
+ #  http://servername/server-info (requires that mod_info.c be loaded).
+ # Change the ".example.com" to match your domain to enable.
+ #
+-#<Location /server-info>
+-#    SetHandler server-info
+-#    Order deny,allow
+-#    Deny from all
+-#    Allow from .example.com
+-#</Location>
++<Location /server-info>
++    SetHandler server-info
++    Order deny,allow
++    Deny from all
++    Allow from 127.0.0.1
++</Location>
+ 
+ #
+ # Proxy Server directives. Uncomment the following lines to
+@@ -987,7 +989,7 @@
+ #
+ # Use name-based virtual hosting.
+ #
+-#NameVirtualHost *:80
++NameVirtualHost *:80
+ #
+ # NOTE: NameVirtualHost cannot be used without a port specifier 
+ # (e.g. :80) if mod_ssl is being used, due to the nature of the
+EOF
+	patch /etc/php.ini << EOF
+--- /etc/php.ini~       2011-10-24 11:09:36.742431451 +0200
++++ /etc/php.ini        2011-10-24 11:10:18.178428953 +0200
+@@ -383,7 +383,7 @@
+ ; It receives a comma-delimited list of function names. This directive is
+ ; *NOT* affected by whether Safe Mode is turned On or Off.
+ ; http://www.php.net/manual/en/ini.sect.safe-mode.php#ini.disable-functions
+-disable_functions =
++disable_functions = disk_total_space,diskfreespace,disk_free_space,phpinfo,dl,system,exec,passthru,shell_exec
+ 
+ ; This directive allows you to disable certain classes for security reasons.
+ ; It receives a comma-delimited list of class names. This directive is
+@@ -429,7 +429,7 @@
+ ; threat in any way, but it makes it possible to determine whether you use PHP
+ ; on your server or not.
+ ; http://www.php.net/manual/en/ini.core.php#ini.expose-php
+-expose_php = On
++expose_php = Off
+ 
+ ;;;;;;;;;;;;;;;;;;;
+ ; Resource Limits ;
+@@ -726,7 +726,7 @@
+ 
+ ; Maximum size of POST data that PHP will accept.
+ ; http://www.php.net/manual/en/ini.core.php#ini.post-max-size
+-post_max_size = 8M
++post_max_size = 20M
+ 
+ ; Magic quotes are a preprocessing feature of PHP where PHP will attempt to
+ ; escape any character sequences in GET, POST, COOKIE and ENV data which might
+@@ -875,7 +875,7 @@
+ 
+ ; Maximum allowed size for uploaded files.
+ ; http://www.php.net/manual/en/ini.core.php#ini.upload-max-filesize
+-upload_max_filesize = 2M
++upload_max_filesize = 20M
+ 
+ ;;;;;;;;;;;;;;;;;;
+ ; Fopen wrappers ;
+EOF
+	/etc/init.d/httpd start
+	# TODO: otevrit porty 80/tcp a 443/tcp v iptables a ip6tables
+fi
+if yes_no "Pridat PHP rozsireni" ; then
+	yum -y install \
+php-bcmath \
+php-gd \
+php-intl \
+php-mbstring \
+#php-mcrypt \
+php-mysql \
+php-pdo \
+php-pear \
+php-pear-db \
+php-pear-XML-Parser \
+php-pear-XML-RSS \
+php-pecl-apc \
+#php-pecl-imagick \
+php-soap \
+php-xml \
+php-xmlrpc
+fi
+if yes_no "Nainstalovat MySQL server" ; then
+	yum -y install mysql-server mysqltuner
+	chkconfig mysqld on
+	patch /etc/my.cnf << EOF
+--- /etc/my.cnf~        2011-10-24 11:18:54.524441133 +0200
++++ /etc/my.cnf 2011-10-24 11:20:36.204446489 +0200
+@@ -4,6 +4,20 @@
+ user=mysql
+ # Disabling symbolic-links is recommended to prevent assorted security risks
+ symbolic-links=0
++expire_logs_days=15
++innodb_file_per_table
++log-bin=mysql-bin
++log-error=/var/log/mysqld.log
++log-queries-not-using-indexes
++log-slow-queries
++max_binlog_size=200M
++max_heap_table_size=32M
++query_cache_size=16M
++table_cache=128
++thread_cache_size=4 
++tmp_table_size=64M
+ 
+ [mysqld_safe]
+ log-error=/var/log/mysqld.log
+EOF
+	/etc/init.d/mysqld start
+	MYSQL_PASSWORD=`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"`
+	echo "UPDATE user SET Password = PASSWORD('$MYSQL_PASSWORD') WHERE User = 'root' ; FLUSH PRIVILEGES" | mysql -s mysql
+	cat >> /root/.my.cnf << EOF
+[mysql]
+password=$MYSQL_PASSWORD
+EOF
+	chmod go-rwx /root/.my.cnf
+	NRPE_MYSQL=1
+fi
+if yes_no "Nainstalovat phpMyAdmin" ; then
+	yum -y install phpmyadmin
+        sed -i "s/Allow from 127.0.0.1/Allow from 158.196.0.0\/16/" /etc/httpd/conf.d/phpmyadmin.conf
+	PHPMYADMIN_CONF=`cat /etc/httpd/conf.d/phpmyadmin.conf | sed "s/$/\\\\\\\\n/;s|/|\\\\\\\\/|g" | tr -d "\n"`
+	sed -i "s/<\/VirtualHost>/$PHPMYADMIN_CONF\n<\/VirtualHost>/" /etc/httpd/conf.d/ssl.conf && \
+	rm /etc/httpd/conf.d/phpmyadmin.conf
+	BLOWFISH_SECRET=`apg -n 1 -m 8 -x 8 | sed "s/[^0-9A-Za-z]//g"`
+	sed -i "s/\(.*blowfish_secret.*'\)\('.*YOU MUST FILL IN THIS.*\)/\1$BLOWFISH_SECRET\2/" /usr/share/phpmyadmin/config.inc.php
+	apachectl -t && apachectl -k graceful
+fi
+if yes_no "Nainstalovat a nastavit scponly pro LDAP uzivatele" ; then
+	read -p "Adresar, kam maji byt LDAP uzivatele presmerovani: " HOMEDIRECTORY
+	yum -y install scponly
+	cat >> /etc/nslcd.conf << EOF
+map     passwd homeDirectory    "$HOMEDIRECTORY"
+map     passwd loginShell       "/usr/bin/scponly"
+EOF
+	/etc/init.d/nslcd restart
+	/etc/init.d/sshd reload
+fi
+if yes_no "Nainstalovat NRPE" ; then
+	yum -y install nagios-nrpe
+	chkconfig nrpe on
+	sed -i "s/\(allowed_hosts=[^	 ]*\)/\1,158.196.149.136,158.196.149.137/" /etc/nagios/nrpe.cfg
+	cat >> /etc/nagios/nrpe.cfg << EOF
+command[check_disk]=/usr/lib64/nagios/plugins/check_disk -w 20% -c 10% -A
+EOF
+	[ "$NRPE_MYSQL" = "1" ] && echo "command[check_mysql]=/usr/lib64/nagios/plugins/check_mysql -u nagios" >> /etc/nagios/nrpe.cfg && \
+	echo "CREATE USER 'nagios' ; FLUSH PRIVILEGES" | mysql -s mysql
+	/etc/init.d/nrpe start
+fi
+if yes_no "Pripravit server pro zalohovani" ; then
+	cat >> /root/.ssh/authorized_keys << EOF
+ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAx7m1DBPwNo9qyUGyv7xWsdJD/sTGQsyQRj+/RN5+F0eOtu8EVYBWSB5qXr7nb/hVZgX42lV8ewrLAj+P+c7lSBb8AJieASh+/vK/Eek/Xmbs7rHAWiCDNZtIdX8umLo/7TmRZeucTGArm15pLwatBA1vV6fuQk1LyV1HqRk6suPEnNJbCHE9vtZvgfmKHb6aPeyZUlYOODb9S5KfLOpdlMacaLoHFSPDznKoqOf/SrCprU+sTI5g6kCzzvWgb78deOoWhFeqdrtv3PcFrYxxGxMN4tnG9GbeWVmWwpIbzK9BE5gZ5o8OI0D4G30281qwBAHFsCYgFZjmAjmvGYSa6Q== hp_data_protector
+EOF
+	yum -y install xinetd
+	sed -i "s|\(.*personal-agent.*5555/tcp.*\)|#\1|" /etc/services
+	cat >> /etc/services << EOF
+
+omni            5555/tcp                # HP Data Protector
+EOF
+	# TODO: otevrit port 5555/tcp zalohovacimu serveru v iptables a ip6tables
+fi
+if yes_no "Nainstalovat SNMP" ; then
+	ROCOMMUNITY=`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"`
+	yum -y install net-snmp net-snmp
+	chkconfig snmpd on
+	cat > /etc/snmp/snmpd.conf << EOF
+rocommunity  $ROCOMMUNITY
+agentAddress udp:161,udp6:[::1]:161
+EOF
+	# TODO: otevrit port 161/udp pro monsrv.vsb.cz v iptables a ip6tables
+	/etc/init.d/snmpd start
+fi
+if yes_no "Donastavit Postfix" ; then
+	cat >> /etc/postfix/main.cf << EOF
+myhostname = `hostname -f`
+relayhost = smtp.vsb.cz
+EOF
+	postfix reload
+fi
+if yes_no "Nainstalovat a spustit nastroj pro inspekci systemu" ; then
+	wget -q --no-check-certificate -P /tmp/ "https://ca.svetdoma.cz/svetdoma_cz-ca.crt" && \
+	openssl x509 -in /tmp/svetdoma_cz-ca.crt -text >> /etc/pki/tls/certs/ca-bundle.crt && \
+	rm /tmp/svetdoma_cz-ca.crt
+	wget -q -P /root/bin/ "https://github.com/filipvalder/inspector/raw/trachta/trachta.sh" && \
+        wget -q -P /tmp/ "https://github.com/filipvalder/inspector/raw/trachta/trachta.sh.signature" "https://ca.svetdoma.cz/filip@valder_cz.pub" && \
+	openssl dgst -sha256 -verify /tmp/filip@valder_cz.pub -signature /tmp/trachta.sh.signature /root/bin/trachta.sh && \
+	chmod 700 /root/bin/trachta.sh && \
+	/root/bin/trachta.sh && \
+	rm /tmp/filip@valder_cz.pub /tmp/trachta.sh.signature
+fi
+# FIRST-ROOT-LOGIN-SCRIPT-END
+sed -i "/FIRST-ROOT-LOGIN-SCRIPT-BEGIN/,/FIRST-ROOT-LOGIN-SCRIPT-END/d" /root/.bashrc
+EOF_BASHRC
+
+# Navrat na TTY1
+chvt 1
+%end
