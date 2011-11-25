@@ -1,7 +1,17 @@
 ################################################################################
 ################################################################################
 #
-# Kickstart pro CentOS-6.0-x86_64-minimal.iso
+# Autor:		Filip Valder
+# Kickstart (KS) pro:	CentOS-6.0-x86_64-minimal.iso
+#			CentOS-6.0-i386-minimal.iso
+# Instalace:		1) Nakopirovat tento KS skript na web.
+#			2) Pripojit ISO (viz vyse) a nabootovat z nej.
+#			3) V bootovacim menu po stisknuti <TAB> pridat
+#			   parametr prikazove radky s cestou ke KS, napr.:
+#			   ks=http://tam/kde/mam/ten/kickstart
+#			4) Po prvnim prihlaseni (v konzoli nebo pres SSH)
+#			   v asistovanem textovem rezimu donastavit ostatni
+#			   sluzby.
 #
 ################################################################################
 ################################################################################
@@ -85,11 +95,12 @@ dhclient eth0
 ################################################################################
 # Pridani repozitaru
 ################################################################################
-BASEARCH=`uname -i`
+BASEARCH_CPU=`uname -p`
+BASEARCH_HW=`uname -i`
 rpm -Uhv \
-http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.$BASEARCH.rpm \
-http://repository.vsb.cz/hrb33/el6/hrb/stable/$BASEARCH/hrb-release-0.1-5.el6.hrb.$BASEARCH.rpm \
-http://spacewalk.redhat.com/yum/1.5/RHEL/6/$BASEARCH/spacewalk-client-repo-1.5-1.el6.noarch.rpm
+http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.$BASEARCH_CPU.rpm \
+http://repository.vsb.cz/hrb33/el6/hrb/stable/$BASEARCH_HW/hrb-release-0.1-5.el6.hrb.$BASEARCH_CPU.rpm \
+http://spacewalk.redhat.com/yum/1.5/RHEL/6/$BASEARCH_HW/spacewalk-client-repo-1.5-1.el6.noarch.rpm
 
 ################################################################################
 # Aktualizace a instalace balicku
@@ -140,7 +151,7 @@ rhn-setup \
 rhnsd \
 m2crypto \
 yum-rhn-plugin
-rhnreg_ks --serverUrl=http://spacewalk.vsb.cz/XMLRPC --activationkey=1-c6-$BASEARCH
+rhnreg_ks --serverUrl=http://spacewalk.vsb.cz/XMLRPC --activationkey=1-c6-$BASEARCH_CPU
 
 ################################################################################
 # Instalace OSAD
@@ -221,11 +232,16 @@ echo "Napr.: fdisk /dev/sdb && mkfs.ext4 /dev/sdb1 && echo /dev/sdb1 /srv ext4 d
 read -p "Po dokonceni uprav stisknete <CTRL> + <D> pro navrat z docasneho shellu." FOO
 ( export PS1="[DOCASNY SHELL]# " ; /bin/bash --norc )
 ################################################################################
-# Postfix aliasy
+# Postfix
 ################################################################################
 read -p "Postfix root alias/-y oddelene carkou: " ALIASES
 sed -i "s/^#\(root:\).*/\1 \$ALIASES/" /etc/aliases
 newaliases
+cat >> /etc/postfix/main.cf << EOF
+mydomain = \`hostname -d\`
+relayhost = smtp.\`hostname -d\`
+EOF
+postfix reload
 ################################################################################
 # Nastaveni IPv6
 ################################################################################
@@ -518,7 +534,7 @@ diff -ur /etc~/pam_ldap.conf /etc/pam_ldap.conf
 -#pam_min_uid 0
 -#pam_max_uid 0
 +pam_min_uid 9500
-+pam_max_uid 65000
++#pam_max_uid 65000
  
  # Template login attribute, default template user
  # (can be overriden by value of former attribute
@@ -688,10 +704,10 @@ if yes_no "Nainstalovat Apache" ; then
  # (e.g. :80) if mod_ssl is being used, due to the nature of the
 EOF
 	/etc/init.d/httpd start
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -m state --state NEW -m tcp -p tcp --dport 80 -j ACCEPT\n\1/" /etc/sysconfig/iptables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT\n\1/" /etc/sysconfig/iptables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -m state --state NEW -m tcp -p tcp --dport 80 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# HTTP\n-A INPUT -m state --state NEW -m tcp -p tcp --dport 80 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# HTTPS\n-A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# HTTP\n-A INPUT -m state --state NEW -m tcp -p tcp --dport 80 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# HTTPS\n-A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
 fi
 ################################################################################
 # PHP a jeho rozsireni
@@ -785,7 +801,7 @@ if yes_no "Nainstalovat MySQL server" ; then
 +log-bin=mysql-bin
 +log-error=/var/log/mysqld.log
 +log-queries-not-using-indexes
-+log-slow-queries
++log-slow-queries=\$DATADIR/mysqld-slow.log
 +max_binlog_size=200M
 +max_heap_table_size=32M
 +query_cache_size=16M
@@ -796,13 +812,23 @@ if yes_no "Nainstalovat MySQL server" ; then
  [mysqld_safe]
  log-error=/var/log/mysqld.log
 EOF
-	[ -n "\$DATADIR" ] && [ -d "\$DATADIR" ] && [ "\$DATADIR" != "0" ] && mv /var/lib/mysql \$DATADIR
+	[ -n "\$DATADIR" ] && [ ! -e "\$DATADIR" ] && [ "\$DATADIR" != "/var/lib/mysql" ] && mkdir -p \$DATADIR && mv -T /var/lib/mysql \$DATADIR
 	/etc/init.d/mysqld start
 	MYSQL_PASSWORD=\`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"\`
 	echo "UPDATE user SET Password = PASSWORD('\$MYSQL_PASSWORD') WHERE User = 'root' ; FLUSH PRIVILEGES" | mysql -s mysql
 	cat >> /root/.my.cnf << EOF
 [mysql]
 password=\$MYSQL_PASSWORD
+EOF
+	cat >> /etc/logrotate.d/mysqld << EOF
+\$DATADIR/mysqld-slow.log {
+	create 660 mysql mysql
+	missingok
+	copytruncate
+	notifempty
+	daily
+	rotate 31
+}
 EOF
 	chmod go-rwx /root/.my.cnf
 	NRPE_MYSQL=1
@@ -841,14 +867,15 @@ if yes_no "Nainstalovat NRPE" ; then
 	yum -y install nagios-nrpe
 	chkconfig nrpe on
 	sed -i "s/\(allowed_hosts=[^	 ]*\)/\1,158.196.149.136,158.196.149.137/" /etc/nagios/nrpe.cfg
+	uname -p | grep -q "64\$" && LIBDIR="lib64" || LIBDIR="lib"
 	cat >> /etc/nagios/nrpe.cfg << EOF
-command[check_disk]=/usr/lib64/nagios/plugins/check_disk -w 20% -c 10% -A
+command[check_disk]=/usr/\$LIBDIR/nagios/plugins/check_disk -w 20% -c 10% -A
 EOF
-	[ "\$NRPE_MYSQL" = "1" ] && echo "command[check_mysql]=/usr/lib64/nagios/plugins/check_mysql -u nagios" >> /etc/nagios/nrpe.cfg && \
+	[ "\$NRPE_MYSQL" = "1" ] && echo "command[check_mysql]=/usr/\$LIBDIR/nagios/plugins/check_mysql -u nagios" >> /etc/nagios/nrpe.cfg && \
 	echo "CREATE USER 'nagios' ; FLUSH PRIVILEGES" | mysql -s mysql
 	/etc/init.d/nrpe start
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 158.196.149.136 -m state --state NEW -m tcp -p tcp --dport 5666 -j ACCEPT\n\1/" /etc/sysconfig/iptables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 2001:718:1001:149::136 -m state --state NEW -m tcp -p tcp --dport 5666 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# NRPE\n-A INPUT -s 158.196.149.136 -m state --state NEW -m tcp -p tcp --dport 5666 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# NRPE\n-A INPUT -s 2001:718:1001:149::136 -m state --state NEW -m tcp -p tcp --dport 5666 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
 fi
 ################################################################################
 # Zalohovani HP Data Protectorem
@@ -863,7 +890,7 @@ EOF
 
 omni            5555/tcp                # HP Data Protector
 EOF
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 158.196.2.3 -m state --state NEW -m tcp -p tcp --dport 5555 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# OMNI\n-A INPUT -s 158.196.2.3 -m state --state NEW -m tcp -p tcp --dport 5555 -j ACCEPT\n\1/" /etc/sysconfig/iptables
 fi
 ################################################################################
 # SNMP
@@ -876,20 +903,9 @@ if yes_no "Nainstalovat SNMP" ; then
 rocommunity  \$ROCOMMUNITY
 agentAddress udp:161,udp6:[::1]:161
 EOF
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 158.196.149.152 -m state --state NEW -m udp -p udp --dport 161 -j ACCEPT\n\1/" /etc/sysconfig/iptables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 2001:718:1001:149::152 -m state --state NEW -m udp -p udp --dport 161 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# SNMP\n-A INPUT -s 158.196.149.152 -m state --state NEW -m udp -p udp --dport 161 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# SNMP\n-A INPUT -s 2001:718:1001:149::152 -m state --state NEW -m udp -p udp --dport 161 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
 	/etc/init.d/snmpd start
-fi
-################################################################################
-# Postfix
-################################################################################
-if yes_no "Donastavit Postfix" ; then
-	cat >> /etc/postfix/main.cf << EOF
-myhostname = \`hostname -f\`
-relayhost = smtp.vsb.cz
-smtp_helo_name = \`hostname\`
-EOF
-	postfix reload
 fi
 ################################################################################
 # VMware Tools
@@ -923,8 +939,8 @@ if yes_no "Nainstalovat a spustit nastroj pro inspekci systemu" ; then
 	/root/bin/trachta.sh && \
 	rm -f /tmp/filip@valder_cz.pub /tmp/trachta.sh.signature
 fi
+sed -i "/FIRST-ROOT-LOGIN-SCRIPT-BEGIN/,/[F]IRST-ROOT-LOGIN-SCRIPT-END/d" /root/.bashrc
 # FIRST-ROOT-LOGIN-SCRIPT-END
-sed -i "/FIRST-ROOT-LOGIN-SCRIPT-BEGIN/,/FIRST-ROOT-LOGIN-SCRIPT-END/d" /root/.bashrc
 EOF_BASHRC
 
 # Navrat na TTY1
