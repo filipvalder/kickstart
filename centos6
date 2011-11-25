@@ -1,10 +1,18 @@
+################################################################################
+################################################################################
 #
 # Kickstart pro CentOS-6.0-x86_64-minimal.iso
 #
+################################################################################
+################################################################################
 
+################################################################################
+################################################################################
 #
 # Zakladni konfiguracni parametry
 #
+################################################################################
+################################################################################
 #version=RHEL6
 install
 cmdline
@@ -20,47 +28,72 @@ timezone --utc Europe/Prague
 bootloader --location=mbr --driveorder=sda --append="crashkernel=auto rhgb quiet"
 reboot
 
+################################################################################
+################################################################################
 #
 # Rozdeleni disku
 #
+################################################################################
+################################################################################
 clearpart --linux --drives=sda --initlabel
-part pv.01 --grow --size 8000 --ondisk=sda
+part pv.01 --grow --size 7500 --ondisk=sda
 part /boot --fstype=ext4 --size=500
 volgroup VolGroup --pesize=4096 pv.01
 logvol / --fstype=ext4 --name=lv_root --vgname=VolGroup --grow --size=1024 --maxsize=51200
 logvol swap --name=lv_swap --vgname=VolGroup --grow --size=1008 --maxsize=2016
 
+################################################################################
+################################################################################
 #
 # Zdroj instalace
 #
+################################################################################
+################################################################################
 repo --name="CentOS" --baseurl=file:///mnt/source --cost=100
 
+################################################################################
+################################################################################
 #
 # Minimalisticka instalace
 #
+################################################################################
+################################################################################
 %packages --nobase
 @core
 %end
 
+################################################################################
+################################################################################
 #
 # Post-instalacni skript
 #
+################################################################################
+################################################################################
 %post --log=/var/log/post-install-script.log
+################################################################################
 # Prechod na TTY6
+################################################################################
 exec < /dev/tty6 > /dev/tty6
 chvt 6
 
+################################################################################
 # Jeste jednou si dame dhclienta
+################################################################################
 dhclient eth0
 
+################################################################################
 # Pridani repozitaru
+################################################################################
 BASEARCH=`uname -i`
 rpm -Uhv \
 http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.$BASEARCH.rpm \
 http://repository.vsb.cz/hrb33/el6/hrb/stable/$BASEARCH/hrb-release-0.1-5.el6.hrb.$BASEARCH.rpm \
 http://spacewalk.redhat.com/yum/1.5/RHEL/6/$BASEARCH/spacewalk-client-repo-1.5-1.el6.noarch.rpm
 
+################################################################################
 # Aktualizace a instalace balicku
+################################################################################
+yum -y install centos-release-cr
 yum -y update
 yum -y install \
 apg \
@@ -71,6 +104,7 @@ etckeeper \
 htop \
 iftop \
 logwatch \
+lsof \
 man \
 mc \
 mlocate \
@@ -89,7 +123,15 @@ telnet \
 vim \
 wget
 
+################################################################################
+# etckeeper
+################################################################################
+etckeeper init -d /etc
+sed -i "s/#\(AVOID_DAILY_AUTOCOMMITS=1\)/\1/" /etc/etckeeper/etckeeper.conf
+
+################################################################################
 # Registrace do Spacewalku
+################################################################################
 yum -y install \
 rhn-client-tools \
 rhn-check \
@@ -99,12 +141,16 @@ m2crypto \
 yum-rhn-plugin
 rhnreg_ks --serverUrl=http://spacewalk.vsb.cz/XMLRPC --activationkey=1-c6-$BASEARCH
 
+################################################################################
 # Instalace OSAD
+################################################################################
 yum -y install osad
 sed -i "s|\(osa_ssl_cert = \).*|\1/usr/share/rhn/RHN-ORG-TRUSTED-SSL-CERT|" /etc/sysconfig/rhn/osad.conf
-cd /usr/share/rhn/ && wget -q http://spacewalk.vsb.cz/pub/RHN-ORG-TRUSTED-SSL-CERT
+cd /usr/share/rhn && wget -q http://spacewalk.vsb.cz/pub/RHN-ORG-TRUSTED-SSL-CERT
 
+################################################################################
 # Odinstalace zbytecnosti
+################################################################################
 yum -y remove \
 device-mapper-multipath \
 iscsi-initiator-utils \
@@ -112,24 +158,22 @@ libcgroup \
 lldpad \
 rpcbind
 
-# Nastaveni sluzeb
-chkconfig fcoe off
-chkconfig iscsid off
-chkconfig iscsi off
-chkconfig lldpad off
+################################################################################
+# Zapnuti sluzeb
+################################################################################
 chkconfig ntpd on
 chkconfig osad on
-chkconfig rpcbind off
-chkconfig rpcgssd off
-chkconfig rpcidmapd off
 
-# Zapis jistych rc konfiguraci v adresari /root/
+################################################################################
+# Zapis jistych rc konfiguraci v adresari /root
+################################################################################
 echo "alias l='ls -al'" >> /root/.bashrc
 cat >> /root/.inputrc << EOF
 "\e[A": history-search-backward
 "\e[B": history-search-forward
 EOF
 cat >> /root/.vimrc << EOF
+set bs=indent,eol,start
 set hls
 set nomodeline
 set nowrap
@@ -137,15 +181,21 @@ set ru
 syntax on
 EOF
 
+################################################################################
 # Vytvoreni bin adresare pro roota
+################################################################################
 mkdir /root/bin
 
+################################################################################
 # SSH
+################################################################################
 mkdir /root/.ssh
 touch /root/.ssh/authorized_keys
 chmod -R go-rwx /root/.ssh
 
+################################################################################
 # Skript po prvnim prihlaseni roota
+################################################################################
 cat >> /root/.bashrc << EOF_BASHRC
 # FIRST-ROOT-LOGIN-SCRIPT-BEGIN
 function yes_no ( ) {
@@ -154,16 +204,45 @@ function yes_no ( ) {
         [ "\$YES_NO" = "N" ] || [ "\$YES_NO" = "n" ] && return 1
         yes_no \$1
 }
+################################################################################
 # Zmena hesla
+################################################################################
 read -p "Po stisknuti klavesy <ENTER> zadejte prosim nove heslo uzivatele root." FOO
 passwd
-# Mount pro /home
-#echo "/dev/sdb /home xfs rw 0 0" >> /etc/fstab
+################################################################################
+# Mount pro /neco
+################################################################################
+#echo "/dev/sdb1 /neco ext4 rw 0 0" >> /etc/fstab
+################################################################################
 # Postfix aliasy
+################################################################################
 read -p "Postfix root alias/-y oddelene carkou: " ALIASES
 sed -i "s/^#\(root:\).*/\1 \$ALIASES/" /etc/aliases
 newaliases
+################################################################################
+# Nastaveni IPv6
+################################################################################
+if yes_no "Nastavit IPv6" ; then
+	read -p "Rozhrani: " ETHX
+	read -p "IPv6 adresa/maska: " IPV6ADDR
+	read -p "IPv6 vychozi brana: " IPV6_DEFAULTGW
+	cat >> /etc/sysconfig/network << EOF
+NETWORKING_IPV6=yes
+EOF
+	cat >> /etc/sysconfig/network-scripts/ifcfg-\$ETHX << EOF
+IPV6INIT=yes
+IPV6_AUTOCONF=no
+IPV6ADDR=\$IPV6ADDR
+IPV6_DEFROUTE=yes
+IPV6_FAILURE_FATAL=yes
+IPV6_DEFAULTGW=\$IPV6_DEFAULTGW
+EOF
+	ifconfig \$ETHX inet6 add \$IPV6ADDR
+	route -A inet6 add default gw \$IPV6_DEFAULTGW
+fi
+################################################################################
 # Nastaveni autentizace
+################################################################################
 if yes_no "Nakonfigurovat prihlasovani LDAPem k tomuto systemu" ; then
 	patch -d /etc -p2 << EOF
 --- /etc~/nslcd.conf	2011-08-29 13:26:09.704677244 +0200
@@ -485,8 +564,11 @@ EOF
 	/etc/init.d/nslcd start
 	/etc/init.d/sshd reload
 fi
-if yes_no "Nainstalovat Apache + PHP" ; then
-	yum -y install httpd mod_ssl php
+################################################################################
+# Apache
+################################################################################
+if yes_no "Nainstalovat Apache" ; then
+	yum -y install httpd mod_ssl
 	chkconfig httpd on
 	patch /etc/httpd/conf/httpd.conf << EOF
 --- /etc/httpd/conf/httpd.conf~ 2011-10-24 10:55:29.036423262 +0200
@@ -601,6 +683,33 @@ if yes_no "Nainstalovat Apache + PHP" ; then
  # NOTE: NameVirtualHost cannot be used without a port specifier 
  # (e.g. :80) if mod_ssl is being used, due to the nature of the
 EOF
+	/etc/init.d/httpd start
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -m state --state NEW -m tcp -p tcp --dport 80 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -m state --state NEW -m tcp -p tcp --dport 80 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
+fi
+################################################################################
+# PHP a jeho rozsireni
+################################################################################
+if yes_no "Pridat PHP a jeho rozsireni" ; then
+	yum -y install \
+php \
+php-bcmath \
+php-gd \
+php-intl \
+php-mbstring \
+php-mysql \
+php-pdo \
+php-pear \
+php-pear-db \
+php-pear-XML-Parser \
+php-pear-XML-RSS \
+php-pecl-apc \
+php-soap \
+php-xml \
+php-xmlrpc
+	# TODO: php-mcrypt, php-pecl-imagick
 	patch /etc/php.ini << EOF
 --- /etc/php.ini~       2011-10-24 11:09:36.742431451 +0200
 +++ /etc/php.ini        2011-10-24 11:10:18.178428953 +0200
@@ -641,35 +750,22 @@ EOF
  ;;;;;;;;;;;;;;;;;;
  ; Fopen wrappers ;
 EOF
-	/etc/init.d/httpd start
-	# TODO: otevrit porty 80/tcp a 443/tcp v iptables a ip6tables
+	/etc/init.d/httpd restart
 fi
-if yes_no "Pridat PHP rozsireni" ; then
-	yum -y install \
-php-bcmath \
-php-gd \
-php-intl \
-php-mbstring \
-#php-mcrypt \
-php-mysql \
-php-pdo \
-php-pear \
-php-pear-db \
-php-pear-XML-Parser \
-php-pear-XML-RSS \
-php-pecl-apc \
-#php-pecl-imagick \
-php-soap \
-php-xml \
-php-xmlrpc
-fi
+################################################################################
+# MySQL
+################################################################################
 if yes_no "Nainstalovat MySQL server" ; then
 	yum -y install mysql-server mysqltuner
 	chkconfig mysqld on
 	patch /etc/my.cnf << EOF
 --- /etc/my.cnf~        2011-10-24 11:18:54.524441133 +0200
 +++ /etc/my.cnf 2011-10-24 11:20:36.204446489 +0200
-@@ -4,6 +4,20 @@
+@@ -1,9 +1,21 @@
+ [mysqld]
+-datadir=/var/lib/mysql
++datadir=/srv/mysql
+ socket=/var/lib/mysql/mysql.sock
  user=mysql
  # Disabling symbolic-links is recommended to prevent assorted security risks
  symbolic-links=0
@@ -683,42 +779,55 @@ if yes_no "Nainstalovat MySQL server" ; then
 +max_heap_table_size=32M
 +query_cache_size=16M
 +table_cache=128
-+thread_cache_size=4 
++thread_cache_size=4
 +tmp_table_size=64M
  
  [mysqld_safe]
  log-error=/var/log/mysqld.log
 EOF
+	mv /var/lib/mysql /srv/mysql
 	/etc/init.d/mysqld start
 	MYSQL_PASSWORD=`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"`
-	echo "UPDATE user SET Password = PASSWORD('$MYSQL_PASSWORD') WHERE User = 'root' ; FLUSH PRIVILEGES" | mysql -s mysql
+	echo "UPDATE user SET Password = PASSWORD('\$MYSQL_PASSWORD') WHERE User = 'root' ; FLUSH PRIVILEGES" | mysql -s mysql
 	cat >> /root/.my.cnf << EOF
 [mysql]
-password=$MYSQL_PASSWORD
+password=\$MYSQL_PASSWORD
 EOF
 	chmod go-rwx /root/.my.cnf
 	NRPE_MYSQL=1
 fi
-if yes_no "Nainstalovat phpMyAdmin" ; then
-	yum -y install phpmyadmin
-        sed -i "s/Allow from 127.0.0.1/Allow from 158.196.0.0\/16/" /etc/httpd/conf.d/phpmyadmin.conf
-	PHPMYADMIN_CONF=`cat /etc/httpd/conf.d/phpmyadmin.conf | sed "s/$/\\\\\\\\n/;s|/|\\\\\\\\/|g" | tr -d "\n"`
-	sed -i "s/<\/VirtualHost>/$PHPMYADMIN_CONF\n<\/VirtualHost>/" /etc/httpd/conf.d/ssl.conf && \
-	rm /etc/httpd/conf.d/phpmyadmin.conf
-	BLOWFISH_SECRET=`apg -n 1 -m 8 -x 8 | sed "s/[^0-9A-Za-z]//g"`
-	sed -i "s/\(.*blowfish_secret.*'\)\('.*YOU MUST FILL IN THIS.*\)/\1$BLOWFISH_SECRET\2/" /usr/share/phpmyadmin/config.inc.php
-	apachectl -t && apachectl -k graceful
-fi
+################################################################################
+# phpMyAdmin
+################################################################################
+#if yes_no "Nainstalovat phpMyAdmin" ; then
+#	yum -y install phpMyAdmin
+#        # TODO: sed -i "s/Allow from 127.0.0.1/Allow from 158.196.0.0\/16\n  Allow from 2001:718:1001::\/48/" /etc/httpd/conf.d/phpmyadmin.conf
+#	# TODO: PHPMYADMIN_CONF=`cat /etc/httpd/conf.d/phpmyadmin.conf | sed "s/$/\\\\\\\\n/;s|/|\\\\\\\\/|g" | tr -d "\n"`
+#	# TODO: sed -i "s/<\/VirtualHost>/\$PHPMYADMIN_CONF\n<\/VirtualHost>/" /etc/httpd/conf.d/ssl.conf && \
+#	# TODO: rm -f /etc/httpd/conf.d/phpmyadmin.conf
+#	BLOWFISH_SECRET=`apg -n 1 -m 8 -x 8 | sed "s/[^0-9A-Za-z]//g"`
+#	mv -f /usr/share/phpMyAdmin/config.inc.php /etc/phpMyAdmin/
+#	ln -s /etc/phpMyAdmin/config.inc.php /usr/share/phpMyAdmin/config.inc.php
+#	sed -i "s/\(.*blowfish_secret.*'\)\('.*YOU MUST FILL IN THIS.*\)/\1\$BLOWFISH_SECRET\2/" /etc/phpMyAdmin/config.inc.php
+#	apachectl -t && apachectl -k graceful
+#fi
+################################################################################
+# scponly
+################################################################################
 if yes_no "Nainstalovat a nastavit scponly pro LDAP uzivatele" ; then
 	read -p "Adresar, kam maji byt LDAP uzivatele presmerovani: " HOMEDIRECTORY
 	yum -y install scponly
+	chmod +x /usr/bin/scponly # FIXME: chyba v baliku
 	cat >> /etc/nslcd.conf << EOF
-map     passwd homeDirectory    "$HOMEDIRECTORY"
+map     passwd homeDirectory    "\$HOMEDIRECTORY"
 map     passwd loginShell       "/usr/bin/scponly"
 EOF
 	/etc/init.d/nslcd restart
 	/etc/init.d/sshd reload
 fi
+################################################################################
+# NRPE
+################################################################################
 if yes_no "Nainstalovat NRPE" ; then
 	yum -y install nagios-nrpe
 	chkconfig nrpe on
@@ -726,10 +835,15 @@ if yes_no "Nainstalovat NRPE" ; then
 	cat >> /etc/nagios/nrpe.cfg << EOF
 command[check_disk]=/usr/lib64/nagios/plugins/check_disk -w 20% -c 10% -A
 EOF
-	[ "$NRPE_MYSQL" = "1" ] && echo "command[check_mysql]=/usr/lib64/nagios/plugins/check_mysql -u nagios" >> /etc/nagios/nrpe.cfg && \
+	[ "\$NRPE_MYSQL" = "1" ] && echo "command[check_mysql]=/usr/lib64/nagios/plugins/check_mysql -u nagios" >> /etc/nagios/nrpe.cfg && \
 	echo "CREATE USER 'nagios' ; FLUSH PRIVILEGES" | mysql -s mysql
 	/etc/init.d/nrpe start
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 158.196.149.136 -m state --state NEW -m tcp -p tcp --dport 5666 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 2001:718:1001:149::136 -m state --state NEW -m tcp -p tcp --dport 5666 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
 fi
+################################################################################
+# Zalohovani HP Data Protectorem
+################################################################################
 if yes_no "Pripravit server pro zalohovani" ; then
 	cat >> /root/.ssh/authorized_keys << EOF
 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAx7m1DBPwNo9qyUGyv7xWsdJD/sTGQsyQRj+/RN5+F0eOtu8EVYBWSB5qXr7nb/hVZgX42lV8ewrLAj+P+c7lSBb8AJieASh+/vK/Eek/Xmbs7rHAWiCDNZtIdX8umLo/7TmRZeucTGArm15pLwatBA1vV6fuQk1LyV1HqRk6suPEnNJbCHE9vtZvgfmKHb6aPeyZUlYOODb9S5KfLOpdlMacaLoHFSPDznKoqOf/SrCprU+sTI5g6kCzzvWgb78deOoWhFeqdrtv3PcFrYxxGxMN4tnG9GbeWVmWwpIbzK9BE5gZ5o8OI0D4G30281qwBAHFsCYgFZjmAjmvGYSa6Q== hp_data_protector
@@ -740,36 +854,65 @@ EOF
 
 omni            5555/tcp                # HP Data Protector
 EOF
-	# TODO: otevrit port 5555/tcp zalohovacimu serveru v iptables a ip6tables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 158.196.2.3 -m state --state NEW -m tcp -p tcp --dport 5555 -j ACCEPT\n\1/" /etc/sysconfig/iptables
 fi
+################################################################################
+# SNMP
+################################################################################
 if yes_no "Nainstalovat SNMP" ; then
 	ROCOMMUNITY=`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"`
-	yum -y install net-snmp net-snmp
+	yum -y install net-snmp net-snmp-utils
 	chkconfig snmpd on
 	cat > /etc/snmp/snmpd.conf << EOF
-rocommunity  $ROCOMMUNITY
+rocommunity  \$ROCOMMUNITY
 agentAddress udp:161,udp6:[::1]:161
 EOF
-	# TODO: otevrit port 161/udp pro monsrv.vsb.cz v iptables a ip6tables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 158.196.149.152 -m state --state NEW -m udp -p udp --dport 161 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/-A INPUT -s 2001:718:1001:149::152 -m state --state NEW -m udp -p udp --dport 161 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
 	/etc/init.d/snmpd start
 fi
+################################################################################
+# Postfix
+################################################################################
 if yes_no "Donastavit Postfix" ; then
 	cat >> /etc/postfix/main.cf << EOF
 myhostname = `hostname -f`
 relayhost = smtp.vsb.cz
+smtp_helo_name = `hostname`
 EOF
 	postfix reload
 fi
+################################################################################
+# VMware Tools
+################################################################################
+if yes_no "Nainstalovat VMware Tools" ; then
+	read -p "Pripojte VMware Tools instalator ve vSphere konzoli a potvrdte stiskem <ENTER>." FOO
+	VMWARE_TMPDIR=`mktemp -d --tmpdir "VMware_Tools_Install-XXXXXXXX"`
+	[ -n "\$VMWARE_TMPDIR" ] && [ -d "\$VMWARE_TMPDIR" ] && mkdir \$VMWARE_TMPDIR/mnt && mount /dev/cdrom \$VMWARE_TMPDIR/mnt
+	tar -xC \$VMWARE_TMPDIR -f \$VMWARE_TMPDIR/mnt/VMwareTools-*.tar.gz
+	\$VMWARE_TMPDIR/vmware-tools-distrib/vmware-install.pl --default
+	umount \$VMWARE_TMPDIR/mnt && rm -rf \$VMWARE_TMPDIR
+fi
+################################################################################
+# Restart firewallu
+################################################################################
+if yes_no "Restartovat firewall" ; then
+	/etc/init.d/iptables restart
+	/etc/init.d/ip6tables restart
+fi
+################################################################################
+# Finalni revize konfigurace
+################################################################################
 if yes_no "Nainstalovat a spustit nastroj pro inspekci systemu" ; then
-	wget -q --no-check-certificate -P /tmp/ "https://ca.svetdoma.cz/svetdoma_cz-ca.crt" && \
+	wget -q --no-check-certificate -P /tmp "https://ca.svetdoma.cz/svetdoma_cz-ca.crt" && \
 	openssl x509 -in /tmp/svetdoma_cz-ca.crt -text >> /etc/pki/tls/certs/ca-bundle.crt && \
-	rm /tmp/svetdoma_cz-ca.crt
-	wget -q -P /root/bin/ "https://github.com/filipvalder/inspector/raw/trachta/trachta.sh" && \
-        wget -q -P /tmp/ "https://github.com/filipvalder/inspector/raw/trachta/trachta.sh.signature" "https://ca.svetdoma.cz/filip@valder_cz.pub" && \
+	rm -f /tmp/svetdoma_cz-ca.crt
+	wget -q -P /root/bin "https://github.com/filipvalder/inspector/raw/trachta/trachta.sh" && \
+        wget -q -P /tmp "https://github.com/filipvalder/inspector/raw/trachta/trachta.sh.signature" "https://ca.svetdoma.cz/filip@valder_cz.pub" && \
 	openssl dgst -sha256 -verify /tmp/filip@valder_cz.pub -signature /tmp/trachta.sh.signature /root/bin/trachta.sh && \
 	chmod 700 /root/bin/trachta.sh && \
 	/root/bin/trachta.sh && \
-	rm /tmp/filip@valder_cz.pub /tmp/trachta.sh.signature
+	rm -f /tmp/filip@valder_cz.pub /tmp/trachta.sh.signature
 fi
 # FIRST-ROOT-LOGIN-SCRIPT-END
 sed -i "/FIRST-ROOT-LOGIN-SCRIPT-BEGIN/,/FIRST-ROOT-LOGIN-SCRIPT-END/d" /root/.bashrc
