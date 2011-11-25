@@ -35,6 +35,7 @@ reboot
 #
 ################################################################################
 ################################################################################
+ignoredisk --only-use=sda
 clearpart --linux --drives=sda --initlabel
 part pv.01 --grow --size 7500 --ondisk=sda
 part /boot --fstype=ext4 --size=500
@@ -198,11 +199,14 @@ chmod -R go-rwx /root/.ssh
 ################################################################################
 cat >> /root/.bashrc << EOF_BASHRC
 # FIRST-ROOT-LOGIN-SCRIPT-BEGIN
+################################################################################
+# Funkce
+################################################################################
 function yes_no ( ) {
         read -p "\$1 (A/N/a/n)? " YES_NO
         [ "\$YES_NO" = "A" ] || [ "\$YES_NO" = "a" ] && return 0
         [ "\$YES_NO" = "N" ] || [ "\$YES_NO" = "n" ] && return 1
-        yes_no \$1
+        yes_no "\$1"
 }
 ################################################################################
 # Zmena hesla
@@ -210,9 +214,12 @@ function yes_no ( ) {
 read -p "Po stisknuti klavesy <ENTER> zadejte prosim nove heslo uzivatele root." FOO
 passwd
 ################################################################################
-# Mount pro /neco
+# Pripojne body
 ################################################################################
-#echo "/dev/sdb1 /neco ext4 rw 0 0" >> /etc/fstab
+echo "Po stisknuti klavesy <ENTER> nastavte rucne potrebne pripojne body."
+echo "Napr.: fdisk /dev/sdb && mkfs.ext4 /dev/sdb1 && echo /dev/sdb1 /srv ext4 defaults 0 0 >> /etc/fstab && mount /srv"
+read -p "Po dokonceni uprav stisknete <CTRL> + <D> pro navrat z docasneho shellu." FOO
+( export PS1="[DOCASNY SHELL]# " ; /bin/bash --norc )
 ################################################################################
 # Postfix aliasy
 ################################################################################
@@ -226,9 +233,6 @@ if yes_no "Nastavit IPv6" ; then
 	read -p "Rozhrani: " ETHX
 	read -p "IPv6 adresa/maska: " IPV6ADDR
 	read -p "IPv6 vychozi brana: " IPV6_DEFAULTGW
-	cat >> /etc/sysconfig/network << EOF
-NETWORKING_IPV6=yes
-EOF
 	cat >> /etc/sysconfig/network-scripts/ifcfg-\$ETHX << EOF
 IPV6INIT=yes
 IPV6_AUTOCONF=no
@@ -699,17 +703,18 @@ php-bcmath \
 php-gd \
 php-intl \
 php-mbstring \
+php-mcrypt \
 php-mysql \
 php-pdo \
 php-pear \
-php-pear-db \
 php-pear-XML-Parser \
 php-pear-XML-RSS \
+php-pear-db \
 php-pecl-apc \
+php-pecl-imagick \
 php-soap \
 php-xml \
 php-xmlrpc
-	# TODO: php-mcrypt, php-pecl-imagick
 	patch /etc/php.ini << EOF
 --- /etc/php.ini~       2011-10-24 11:09:36.742431451 +0200
 +++ /etc/php.ini        2011-10-24 11:10:18.178428953 +0200
@@ -756,6 +761,12 @@ fi
 # MySQL
 ################################################################################
 if yes_no "Nainstalovat MySQL server" ; then
+	echo "Vyberte adresar pro ukladani dat (parametr datadir)"
+	echo "[0] /var/lib/mysql"
+	echo "[1] /srv/mysql"
+	read -p "nebo zadejte cestu rucne: " DATADIR
+        [ "\$DATADIR" = "0" ] && DATADIR=/var/lib/mysql
+        [ "\$DATADIR" = "1" ] && DATADIR=/srv/mysql
 	yum -y install mysql-server mysqltuner
 	chkconfig mysqld on
 	patch /etc/my.cnf << EOF
@@ -764,7 +775,7 @@ if yes_no "Nainstalovat MySQL server" ; then
 @@ -1,9 +1,21 @@
  [mysqld]
 -datadir=/var/lib/mysql
-+datadir=/srv/mysql
++datadir=\$DATADIR
  socket=/var/lib/mysql/mysql.sock
  user=mysql
  # Disabling symbolic-links is recommended to prevent assorted security risks
@@ -785,9 +796,9 @@ if yes_no "Nainstalovat MySQL server" ; then
  [mysqld_safe]
  log-error=/var/log/mysqld.log
 EOF
-	mv /var/lib/mysql /srv/mysql
+	[ -n "\$DATADIR" ] && [ -d "\$DATADIR" ] && [ "\$DATADIR" != "0" ] && mv /var/lib/mysql \$DATADIR
 	/etc/init.d/mysqld start
-	MYSQL_PASSWORD=`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"`
+	MYSQL_PASSWORD=\`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"\`
 	echo "UPDATE user SET Password = PASSWORD('\$MYSQL_PASSWORD') WHERE User = 'root' ; FLUSH PRIVILEGES" | mysql -s mysql
 	cat >> /root/.my.cnf << EOF
 [mysql]
@@ -799,18 +810,16 @@ fi
 ################################################################################
 # phpMyAdmin
 ################################################################################
-#if yes_no "Nainstalovat phpMyAdmin" ; then
-#	yum -y install phpMyAdmin
-#        # TODO: sed -i "s/Allow from 127.0.0.1/Allow from 158.196.0.0\/16\n  Allow from 2001:718:1001::\/48/" /etc/httpd/conf.d/phpmyadmin.conf
-#	# TODO: PHPMYADMIN_CONF=`cat /etc/httpd/conf.d/phpmyadmin.conf | sed "s/$/\\\\\\\\n/;s|/|\\\\\\\\/|g" | tr -d "\n"`
-#	# TODO: sed -i "s/<\/VirtualHost>/\$PHPMYADMIN_CONF\n<\/VirtualHost>/" /etc/httpd/conf.d/ssl.conf && \
-#	# TODO: rm -f /etc/httpd/conf.d/phpmyadmin.conf
-#	BLOWFISH_SECRET=`apg -n 1 -m 8 -x 8 | sed "s/[^0-9A-Za-z]//g"`
-#	mv -f /usr/share/phpMyAdmin/config.inc.php /etc/phpMyAdmin/
-#	ln -s /etc/phpMyAdmin/config.inc.php /usr/share/phpMyAdmin/config.inc.php
-#	sed -i "s/\(.*blowfish_secret.*'\)\('.*YOU MUST FILL IN THIS.*\)/\1\$BLOWFISH_SECRET\2/" /etc/phpMyAdmin/config.inc.php
-#	apachectl -t && apachectl -k graceful
-#fi
+if yes_no "Nainstalovat phpMyAdmin" ; then
+	yum -y install phpMyAdmin
+	sed -i "1s/\(.*\)/<IfModule mod_ssl.c>\n\1/;\\\$a</IfModule>" /etc/httpd/conf.d/phpMyAdmin.conf
+        sed -i "/<Directory \/usr\/share\/phpMyAdmin\/>/,/<\/Directory>/s/Allow from 127.0.0.1/Allow from 158.196.0.0\/16\n   Allow from 2001:718:1001::\/48/" /etc/httpd/conf.d/phpMyAdmin.conf
+	BLOWFISH_SECRET=\`apg -n 1 -m 8 -x 8 | sed "s/[^0-9A-Za-z]//g"\`
+	cp -f /usr/share/phpMyAdmin/config.sample.inc.php /etc/phpMyAdmin/config.inc.php
+	ln -s /etc/phpMyAdmin/config.inc.php /usr/share/phpMyAdmin/config.inc.php
+	sed -i "s/\(.*blowfish_secret.*'\)\('.*YOU MUST FILL IN THIS.*\)/\1\$BLOWFISH_SECRET\2/" /etc/phpMyAdmin/config.inc.php
+	apachectl -t && apachectl -k graceful
+fi
 ################################################################################
 # scponly
 ################################################################################
@@ -860,7 +869,7 @@ fi
 # SNMP
 ################################################################################
 if yes_no "Nainstalovat SNMP" ; then
-	ROCOMMUNITY=`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"`
+	ROCOMMUNITY=\`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"\`
 	yum -y install net-snmp net-snmp-utils
 	chkconfig snmpd on
 	cat > /etc/snmp/snmpd.conf << EOF
@@ -876,9 +885,9 @@ fi
 ################################################################################
 if yes_no "Donastavit Postfix" ; then
 	cat >> /etc/postfix/main.cf << EOF
-myhostname = `hostname -f`
+myhostname = \`hostname -f\`
 relayhost = smtp.vsb.cz
-smtp_helo_name = `hostname`
+smtp_helo_name = \`hostname\`
 EOF
 	postfix reload
 fi
@@ -887,7 +896,7 @@ fi
 ################################################################################
 if yes_no "Nainstalovat VMware Tools" ; then
 	read -p "Pripojte VMware Tools instalator ve vSphere konzoli a potvrdte stiskem <ENTER>." FOO
-	VMWARE_TMPDIR=`mktemp -d --tmpdir "VMware_Tools_Install-XXXXXXXX"`
+	VMWARE_TMPDIR=\`mktemp -d --tmpdir "VMware_Tools_Install-XXXXXXXX"\`
 	[ -n "\$VMWARE_TMPDIR" ] && [ -d "\$VMWARE_TMPDIR" ] && mkdir \$VMWARE_TMPDIR/mnt && mount /dev/cdrom \$VMWARE_TMPDIR/mnt
 	tar -xC \$VMWARE_TMPDIR -f \$VMWARE_TMPDIR/mnt/VMwareTools-*.tar.gz
 	\$VMWARE_TMPDIR/vmware-tools-distrib/vmware-install.pl --default
