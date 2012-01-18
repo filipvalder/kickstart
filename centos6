@@ -99,7 +99,7 @@ BASEARCH_CPU=`uname -p`
 BASEARCH_HW=`uname -i`
 rpm -Uhv \
 http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.$BASEARCH_CPU.rpm \
-http://repository.vsb.cz/hrb33/el6/hrb/stable/$BASEARCH_HW/hrb-release-0.1-5.el6.hrb.$BASEARCH_CPU.rpm \
+http://repository.vsb.cz/hrb33/el6/hrb/stable/$BASEARCH_HW/hrb-release-0.1-6.el6.hrb.$BASEARCH_CPU.rpm \
 http://spacewalk.redhat.com/yum/1.5/RHEL/6/$BASEARCH_HW/spacewalk-client-repo-1.5-1.el6.noarch.rpm
 
 ################################################################################
