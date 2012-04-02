@@ -3,7 +3,6 @@
 #
 # Autor:		Filip Valder
 # Kickstart (KS) pro:	CentOS-6.0-x86_64-minimal.iso
-#			CentOS-6.0-i386-minimal.iso
 # Instalace:		1) Nakopirovat tento KS skript na web.
 #			2) Pripojit ISO (viz vyse) a nabootovat z nej.
 #			3) V bootovacim menu po stisknuti <TAB> pridat
@@ -60,7 +59,7 @@ logvol swap --name=lv_swap --vgname=VolGroup --grow --size=1008 --maxsize=2016
 #
 ################################################################################
 ################################################################################
-repo --name="CentOS" --baseurl=file:///mnt/source --cost=100
+repo --name="CentOS" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x86_64/ --cost=100
 
 ################################################################################
 ################################################################################
