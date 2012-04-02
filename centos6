@@ -24,6 +24,7 @@
 ################################################################################
 #version=RHEL6
 install
+url --url=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x86_64
 cmdline
 lang en_US.UTF-8
 keyboard us
