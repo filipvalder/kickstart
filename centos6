@@ -25,7 +25,6 @@
 #version=RHEL6
 install
 cmdline
-cdrom
 lang en_US.UTF-8
 keyboard us
 network --device eth0 --bootproto dhcp
