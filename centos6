@@ -60,6 +60,7 @@ logvol swap --name=lv_swap --vgname=VolGroup --grow --size=1008 --maxsize=2016
 ################################################################################
 ################################################################################
 repo --name="CentOS" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x86_64/ --cost=100
+repo --name="CentOS Updates" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/updates/x86_64/ --cost=100
 
 ################################################################################
 ################################################################################
@@ -105,7 +106,7 @@ http://spacewalk.redhat.com/yum/1.5/RHEL/6/$BASEARCH_HW/spacewalk-client-repo-1.
 # Aktualizace a instalace balicku
 ################################################################################
 yum -y install centos-release-cr
-yum -y update
+#yum -y update
 yum -y install \
 apg \
 bind-utils \
