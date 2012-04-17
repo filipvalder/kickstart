@@ -31,7 +31,7 @@ keyboard us
 network --device eth0 --bootproto dhcp
 firewall --service=ssh
 rootpw --iscrypted $6$rDhDP5jWWwmnWBFC$pPt3OXTnWPK7pVE07Aq4PImrNLxPnMJ7rWOKme7uIPI/2t5V01.EwgLM61WRwLbabKEs5rxkLECl6RYTR9gNI.
-authconfig --enableshadow --passalgo=sha512 --enablefingerprint
+authconfig --enableshadow --passalgo=sha512
 selinux --permissive
 timezone --utc Europe/Prague
 bootloader --location=mbr --driveorder=sda --append="crashkernel=auto rhgb quiet"
