@@ -31,7 +31,7 @@ keyboard us
 network --device eth0 --bootproto dhcp
 firewall --service=ssh
 rootpw --iscrypted $6$rDhDP5jWWwmnWBFC$pPt3OXTnWPK7pVE07Aq4PImrNLxPnMJ7rWOKme7uIPI/2t5V01.EwgLM61WRwLbabKEs5rxkLECl6RYTR9gNI.
-authconfig --enableshadow --passalgo=sha512 --enablefingerprint
+authconfig --enableshadow --passalgo=sha512
 selinux --permissive
 timezone --utc Europe/Prague
 bootloader --location=mbr --driveorder=sda --append="crashkernel=auto rhgb quiet"
@@ -59,7 +59,13 @@ logvol swap --name=lv_swap --vgname=VolGroup --grow --size=1008 --maxsize=2016
 #
 ################################################################################
 ################################################################################
-repo --name="CentOS" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x86_64/ --cost=100
+#repo --name="CentOS" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x86_64/ --cost=100
+repo --name="CentOS Updates" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/updates/x86_64/ --cost=100
+repo --name="CentOS Fasttrack"  --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/fasttrack/x86_64/ --cost=100
+repo --name="CentOS CR"  --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/cr/x86_64/ --cost=100
+repo --name="hrb" --baseurl=http://webmel53.vsb.cz/hrb33/el6/hrb/stable/x86_64/ --cost=100
+repo --name="repoforge" --baseurl=http://apt.sw.be/redhat/el6/en/x86_64/rpmforge/ --cost=100
+
 
 ################################################################################
 ################################################################################
@@ -70,6 +76,34 @@ repo --name="CentOS" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x8
 ################################################################################
 %packages --nobase
 @core
+rpmforge-release
+hrb-release
+apg
+bind-utils
+centos-release-cr
+cronie
+etckeeper
+htop
+iftop
+logwatch
+lsof
+man
+mc
+mlocate
+nscd
+nss-pam-ldapd
+ntp
+openldap-clients
+pam_ldap
+patch
+pciutils
+perl
+postfix
+rsync
+tcpdump
+telnet
+vim
+wget
 %end
 
 ################################################################################
@@ -96,43 +130,44 @@ dhclient eth0
 ################################################################################
 BASEARCH_CPU=`uname -p`
 BASEARCH_HW=`uname -i`
+#rpm -Uhv \
+#http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.$BASEARCH_CPU.rpm \
+#http://repository.vsb.cz/hrb33/el6/hrb/stable/$BASEARCH_HW/hrb-release-0.1-6.el6.hrb.$BASEARCH_CPU.rpm \
 rpm -Uhv \
-http://packages.sw.be/rpmforge-release/rpmforge-release-0.5.2-2.el6.rf.$BASEARCH_CPU.rpm \
-http://repository.vsb.cz/hrb33/el6/hrb/stable/$BASEARCH_HW/hrb-release-0.1-6.el6.hrb.$BASEARCH_CPU.rpm \
 http://spacewalk.redhat.com/yum/1.5/RHEL/6/$BASEARCH_HW/spacewalk-client-repo-1.5-1.el6.noarch.rpm
 
 ################################################################################
 # Aktualizace a instalace balicku
 ################################################################################
 yum -y install centos-release-cr
-yum -y update
-yum -y install \
-apg \
-bind-utils \
-centos-release-cr \
-cronie \
-etckeeper \
-htop \
-iftop \
-logwatch \
-lsof \
-man \
-mc \
-mlocate \
-nscd \
-nss-pam-ldapd \
-ntp \
-openldap-clients \
-pam_ldap \
-patch \
-pciutils \
-perl \
-postfix \
-rsync \
-tcpdump \
-telnet \
-vim \
-wget
+#yum -y update
+#yum -y install \
+#apg \
+#bind-utils \
+#centos-release-cr \
+#cronie \
+#etckeeper \
+#htop \
+#iftop \
+#logwatch \
+#lsof \
+#man \
+#mc \
+#mlocate \
+#nscd \
+#nss-pam-ldapd \
+#ntp \
+#openldap-clients \
+#pam_ldap \
+#patch \
+#pciutils \
+#perl \
+#postfix \
+#rsync \
+#tcpdump \
+#telnet \
+#vim \
+#wget
 
 ################################################################################
 # etckeeper
