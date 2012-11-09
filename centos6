@@ -61,8 +61,8 @@ logvol swap --name=lv_swap --vgname=VolGroup --grow --size=1008 --maxsize=2016
 ################################################################################
 repo --name="CentOS" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x86_64/ --cost=100
 repo --name="CentOS Updates" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/updates/x86_64/ --cost=100
-repo --name="CentOS Fasttrack"  --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/fasttrack/x86_64/ --cost=100
-repo --name="CentOS CR"  --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/cr/x86_64/ --cost=100
+repo --name="CentOS Fasttrack" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/fasttrack/x86_64/ --cost=100
+repo --name="CentOS CR" --baseurl=http://merlin.fit.vutbr.cz/mirrors/centos/6/cr/x86_64/ --cost=100
 repo --name="hrb" --baseurl=http://webmel53.vsb.cz/hrb33/el6/hrb/stable/x86_64/ --cost=100
 repo --name="repoforge" --baseurl=http://apt.sw.be/redhat/el6/en/x86_64/rpmforge/ --cost=100
 
@@ -75,6 +75,34 @@ repo --name="repoforge" --baseurl=http://apt.sw.be/redhat/el6/en/x86_64/rpmforge
 ################################################################################
 %packages --nobase
 @core
+hrb-release
+rpmforge-release
+apg
+bind-utils
+centos-release-cr
+cronie
+etckeeper
+htop
+iftop
+logwatch
+lsof
+man
+mc
+mlocate
+nscd
+nss-pam-ldapd
+ntp
+openldap-clients
+pam_ldap
+patch
+pciutils
+perl
+postfix
+rsync
+tcpdump
+telnet
+vim
+wget
 %end
 
 ################################################################################
@@ -103,37 +131,6 @@ BASEARCH_CPU=`uname -p`
 BASEARCH_HW=`uname -i`
 rpm -Uhv \
 http://spacewalk.redhat.com/yum/1.5/RHEL/6/$BASEARCH_HW/spacewalk-client-repo-1.5-1.el6.noarch.rpm
-
-################################################################################
-# Aktualizace a instalace balicku
-################################################################################
-yum -y install \
-apg \
-bind-utils \
-centos-release-cr \
-cronie \
-etckeeper \
-htop \
-iftop \
-logwatch \
-lsof \
-man \
-mc \
-mlocate \
-nscd \
-nss-pam-ldapd \
-ntp \
-openldap-clients \
-pam_ldap \
-patch \
-pciutils \
-perl \
-postfix \
-rsync \
-tcpdump \
-telnet \
-vim \
-wget
 
 ################################################################################
 # etckeeper
