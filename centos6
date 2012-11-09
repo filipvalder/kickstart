@@ -79,7 +79,6 @@ hrb-release
 rpmforge-release
 apg
 bind-utils
-centos-release-cr
 cronie
 etckeeper
 htop
