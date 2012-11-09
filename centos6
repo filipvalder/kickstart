@@ -2,7 +2,7 @@
 ################################################################################
 #
 # Autor:		Filip Valder
-# Kickstart (KS) pro:	CentOS-6.x-x86_64-minimal
+# Kickstart (KS) pro:	CentOS-6.2-x86_64-minimal
 # Instalace:		1) Nakopirovat tento KS skript na web.
 #			2) Pripojit ISO (viz vyse) a nabootovat z nej.
 #			3) V bootovacim menu po stisknuti <TAB> pridat
