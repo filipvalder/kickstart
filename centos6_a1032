@@ -27,7 +27,7 @@ install
 url --url=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x86_64
 cmdline
 lang cs_CZ.UTF-8
-keyboard cz-lat2
+keyboard cz-us-qwertz
 network --device eth0 --bootproto dhcp
 firewall --service=ssh
 rootpw --iscrypted $6$a1032$VxYDRjSS.qjfo7Z7aQ2Z2JLnJWw/Trj5yb6e1PawbUQhfwyjXB0oYzXS0pPxw4Jv6OiiYV9GQuRlBmx2xKR3..
