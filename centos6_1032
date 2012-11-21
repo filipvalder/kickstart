@@ -26,8 +26,8 @@
 install
 url --url=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x86_64
 cmdline
-lang en_US.UTF-8
-keyboard us
+lang cs_CZ.UTF-8
+keyboard cs
 network --device eth0 --bootproto dhcp
 firewall --service=ssh
 rootpw --iscrypted $6$rDhDP5jWWwmnWBFC$pPt3OXTnWPK7pVE07Aq4PImrNLxPnMJ7rWOKme7uIPI/2t5V01.EwgLM61WRwLbabKEs5rxkLECl6RYTR9gNI.
@@ -46,11 +46,11 @@ reboot
 ################################################################################
 ignoredisk --only-use=sda
 clearpart --linux --drives=sda
-part pv.01 --grow --size 7500 --ondisk=sda
+part pv.01 --grow --size 100000 --ondisk=sda
 part /boot --fstype=ext4 --size=500
-volgroup VolGroup --pesize=4096 pv.01
-logvol / --fstype=ext4 --name=lv_root --vgname=VolGroup --grow --size=1024 --maxsize=51200
-logvol swap --name=lv_swap --vgname=VolGroup --grow --size=1008 --maxsize=2016
+volgroup VolGroup --pesize=75000 pv.01
+logvol / --fstype=ext4 --name=lv_root --vgname=VolGroup --grow --size=50000 --maxsize=500000
+logvol swap --name=lv_swap --vgname=VolGroup --grow --size=16000
 
 ################################################################################
 ################################################################################
@@ -73,8 +73,22 @@ repo --name="repoforge" --baseurl=http://apt.sw.be/redhat/el6/en/x86_64/rpmforge
 #
 ################################################################################
 ################################################################################
-%packages --nobase
-@core
+%packages
+@Desktop
+@Development tools
+@Compatibility libraries
+@General Purpose Desktop
+@Czech Support
+@X Window System
+@Scientific support
+@Internet Browser
+@Office Suite and Productivity
+@Directory Client
+@Legacy UNIX compatibility
+@Networking Tools
+@Perl Support
+@System administration tools
+@Printing client
 hrb-release
 rpmforge-release
 apg
@@ -83,7 +97,6 @@ cronie
 etckeeper
 htop
 iftop
-logwatch
 lsof
 man
 mc
@@ -96,7 +109,6 @@ pam_ldap
 patch
 pciutils
 perl
-postfix
 rsync
 tcpdump
 telnet
@@ -198,69 +210,16 @@ mkdir /root/bin
 # SSH
 ################################################################################
 mkdir /root/.ssh
-touch /root/.ssh/authorized_keys
+cat >> /root/.ssh/authorized_keys << EOF
+ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAzoB0at+ykbhvIXQLWiDpwdoHa2zN4YyqLzarC9nE/ddLllvV2tLdb5j6U4THV2MiEI4inRKo8xFlbQmlQgXfu37jE1DsZyOJXouWL3UAM2v+0whn4rj1Bk3Mp+F0Ti2z1drnS3eB1FN3EVdRh+6+TUDlbZ93uX/lBHiW6gEMr24V7tuHxnXooO17a9/e1zplkKKdt7mn75y5UmEidC8XO0avObPo3wrwdB7f0V4oronl0SnxKQKYC6zGUbJdOer1mOQAYTmicgEGpBQgHb24GrRNb4JtxSu2OMsbMUEwNHcFjRWIeneOiNI2UX6FgP8DGOPIeB+MYitA6NNXL7otbw== filip.valder@vsb.cz
+ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAvmijzUo/4x5lJ5UX6zt9K84svDkw/F1Yl8GLzLHlm7oakZGd0Hqh4Z+Qme6cp4bx4YqG4Cfof10Y8M7KWebEwNLv6Nbfo0+m5+4SH0fQ/9M7T2Uw1OnJMGApjGq8sRZde9FcL03FuHz5Xevhlcu8wYiaTawvS4ltKJyY7K16ja/ExHlAHoPYbWDiNTpluVyDHZOOh4m14GtIP6vZbtwoRltL4ySRxsl82zDDwXZqNSpvCuqmzeUJxqXk1ZPXohb6d0IVXatI5mY5BBGEJnQPbr4cUAfr/hucq//Dh4hPS7xSsbyJea0ik0yn2iHULSfgffuK8WGgY6jl4wz07nmPuw== david@hrbac.cz
+EOF
 chmod -R go-rwx /root/.ssh
 
 ################################################################################
-# Skript po prvnim prihlaseni roota
-################################################################################
-cat >> /root/.bashrc << EOF_BASHRC
-# FIRST-ROOT-LOGIN-SCRIPT-BEGIN
-################################################################################
-# Funkce
-################################################################################
-function yes_no ( ) {
-        read -p "\$1 (A/N/a/n)? " YES_NO
-        [ "\$YES_NO" = "A" ] || [ "\$YES_NO" = "a" ] && return 0
-        [ "\$YES_NO" = "N" ] || [ "\$YES_NO" = "n" ] && return 1
-        yes_no "\$1"
-}
-################################################################################
-# Zmena hesla
-################################################################################
-read -p "Po stisknuti klavesy <ENTER> zadejte prosim nove heslo uzivatele root." FOO
-passwd
-################################################################################
-# Pripojne body
-################################################################################
-echo "Po stisknuti klavesy <ENTER> nastavte rucne potrebne pripojne body."
-echo "Napr.: fdisk /dev/sdb && mkfs.ext4 /dev/sdb1 && echo /dev/sdb1 /srv ext4 defaults 0 0 >> /etc/fstab && mount /srv"
-read -p "Po dokonceni uprav stisknete <CTRL> + <D> pro navrat z docasneho shellu." FOO
-( export PS1="[DOCASNY SHELL]# " ; /bin/bash --norc )
-################################################################################
-# Postfix
-################################################################################
-read -p "Postfix root alias/-y oddelene carkou: " ALIASES
-sed -i "s/^#\(root:\).*/\1 \$ALIASES/" /etc/aliases
-newaliases
-cat >> /etc/postfix/main.cf << EOF
-mydomain = \`hostname -d\`
-relayhost = smtp.\`hostname -d\`
-EOF
-postfix reload
-################################################################################
-# Nastaveni IPv6
-################################################################################
-if yes_no "Nastavit IPv6" ; then
-	read -p "Rozhrani: " ETHX
-	read -p "IPv6 adresa/maska: " IPV6ADDR
-	read -p "IPv6 vychozi brana: " IPV6_DEFAULTGW
-	cat >> /etc/sysconfig/network-scripts/ifcfg-\$ETHX << EOF
-IPV6INIT=yes
-IPV6_AUTOCONF=no
-IPV6ADDR=\$IPV6ADDR
-IPV6_DEFROUTE=yes
-IPV6_FAILURE_FATAL=yes
-IPV6_DEFAULTGW=\$IPV6_DEFAULTGW
-EOF
-	ifconfig \$ETHX inet6 add \$IPV6ADDR
-	route -A inet6 add default gw \$IPV6_DEFAULTGW
-fi
-################################################################################
 # Nastaveni autentizace
 ################################################################################
-if yes_no "Nakonfigurovat prihlasovani LDAPem k tomuto systemu" ; then
-	patch -d /etc -p2 << EOF
+patch -d /etc -p2 << EOF
 --- /etc~/nslcd.conf	2011-08-29 13:26:09.704677244 +0200
 +++ /etc/nslcd.conf	2011-08-29 13:29:00.485441945 +0200
 @@ -56,7 +56,7 @@
@@ -574,370 +533,11 @@ diff -ur /etc~/sysconfig/authconfig /etc/sysconfig/authconfig
 +USEDB=no
 +USEPASSWDQC=no
 EOF
-	chkconfig nscd on
-	chkconfig nslcd on
-	/etc/init.d/nscd start
-	/etc/init.d/nslcd start
-	/etc/init.d/sshd reload
-fi
-################################################################################
-# Apache
-################################################################################
-if yes_no "Nainstalovat Apache" ; then
-	yum -y install httpd mod_ssl
-	chkconfig httpd on
-	patch /etc/httpd/conf/httpd.conf << EOF
---- /etc/httpd/conf/httpd.conf~ 2011-10-24 10:55:29.036423262 +0200
-+++ /etc/httpd/conf/httpd.conf  2011-10-24 10:58:13.759433255 +0200
-@@ -41,7 +41,7 @@
- # Don't give away too much information about all the subcomponents
- # we are running.  Comment out this line if you don't mind remote sites
- # finding out what major optional modules you are running
--ServerTokens OS
-+ServerTokens Prod
- 
- #
- # ServerRoot: The top of the directory tree under which the server's
-@@ -225,7 +225,7 @@
- # information (ExtendedStatus On) or just basic information (ExtendedStatus
- # Off) when the "server-status" handler is called. The default is Off.
- #
--#ExtendedStatus On
-+ExtendedStatus On
- 
- #
- # If you wish httpd to run as a different user or group, you must run
-@@ -399,7 +399,7 @@
- # negotiated documents.  The MultiViews Option can be used for the 
- # same purpose, but it is much slower.
- #
--DirectoryIndex index.html index.html.var
-+DirectoryIndex index.html index.html.var index.php
- 
- #
- # AccessFileName: The name of the file to look for in each directory
-@@ -533,7 +533,7 @@
- # Set to "EMail" to also include a mailto: link to the ServerAdmin.
- # Set to one of:  On | Off | EMail
- #
--ServerSignature On
-+ServerSignature Off
- 
- #
- # Aliases: Add here as many aliases as you need (with no limit). The format is 
-@@ -740,7 +740,7 @@
- # Just list the languages in decreasing order of preference. We have
- # more or less alphabetized them here. You probably want to change this.
- #
--LanguagePriority en ca cs da de el eo es et fr he hr it ja ko ltz nl nn no pl pt pt-BR ru sv zh-CN zh-TW
-+LanguagePriority cs en ca da de el eo es et fr he hr it ja ko ltz nl nn no pl pt pt-BR ru sv zh-CN zh-TW
- 
- #
- # ForceLanguagePriority allows you to serve a result page rather than
-@@ -756,7 +756,7 @@
- # in HTML content to override this choice, comment out this
- # directive:
- #
--AddDefaultCharset UTF-8
-+#AddDefaultCharset UTF-8
- 
- #
- # AddType allows you to add to or override the MIME configuration
-@@ -834,6 +834,8 @@
- #ErrorDocument 404 "/cgi-bin/missing_handler.pl"
- #ErrorDocument 402 http://www.example.com/subscription_info.html
- #
-+ErrorDocument 403 http://webresources.vsb.cz/v2/vsb/errors/403.html
-+ErrorDocument 404 http://webresources.vsb.cz/v2/vsb/errors/404.html
- 
- #
- # Putting this all together, we can internationalize error responses.
-@@ -918,24 +920,24 @@
- # with the URL of http://servername/server-status
- # Change the ".example.com" to match your domain to enable.
- #
--#<Location /server-status>
--#    SetHandler server-status
--#    Order deny,allow
--#    Deny from all
--#    Allow from .example.com
--#</Location>
-+<Location /server-status>
-+    SetHandler server-status
-+    Order deny,allow
-+    Deny from all
-+    Allow from 127.0.0.1
-+</Location>
- 
- #
- # Allow remote server configuration reports, with the URL of
- #  http://servername/server-info (requires that mod_info.c be loaded).
- # Change the ".example.com" to match your domain to enable.
- #
--#<Location /server-info>
--#    SetHandler server-info
--#    Order deny,allow
--#    Deny from all
--#    Allow from .example.com
--#</Location>
-+<Location /server-info>
-+    SetHandler server-info
-+    Order deny,allow
-+    Deny from all
-+    Allow from 127.0.0.1
-+</Location>
- 
- #
- # Proxy Server directives. Uncomment the following lines to
-@@ -987,7 +989,7 @@
- #
- # Use name-based virtual hosting.
- #
--#NameVirtualHost *:80
-+NameVirtualHost *:80
- #
- # NOTE: NameVirtualHost cannot be used without a port specifier 
- # (e.g. :80) if mod_ssl is being used, due to the nature of the
-EOF
-	/etc/init.d/httpd start
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# HTTP\n-A INPUT -m state --state NEW -m tcp -p tcp --dport 80 -j ACCEPT\n\1/" /etc/sysconfig/iptables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# HTTPS\n-A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT\n\1/" /etc/sysconfig/iptables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# HTTP\n-A INPUT -m state --state NEW -m tcp -p tcp --dport 80 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# HTTPS\n-A INPUT -m state --state NEW -m tcp -p tcp --dport 443 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
-fi
-################################################################################
-# PHP a jeho rozsireni
-################################################################################
-if yes_no "Pridat PHP a jeho rozsireni" ; then
-	yum -y install \
-php \
-php-bcmath \
-php-gd \
-php-intl \
-php-mbstring \
-php-mcrypt \
-php-mysql \
-php-pdo \
-php-pear \
-php-pear-XML-Parser \
-php-pear-XML-RSS \
-php-pear-db \
-php-pecl-apc \
-php-pecl-imagick \
-php-soap \
-php-xml \
-php-xmlrpc
-	patch /etc/php.ini << EOF
---- /etc/php.ini~       2011-10-24 11:09:36.742431451 +0200
-+++ /etc/php.ini        2011-10-24 11:10:18.178428953 +0200
-@@ -383,7 +383,7 @@
- ; It receives a comma-delimited list of function names. This directive is
- ; *NOT* affected by whether Safe Mode is turned On or Off.
- ; http://www.php.net/manual/en/ini.sect.safe-mode.php#ini.disable-functions
--disable_functions =
-+disable_functions = disk_total_space,diskfreespace,disk_free_space,phpinfo,dl,system,exec,passthru,shell_exec
- 
- ; This directive allows you to disable certain classes for security reasons.
- ; It receives a comma-delimited list of class names. This directive is
-@@ -429,7 +429,7 @@
- ; threat in any way, but it makes it possible to determine whether you use PHP
- ; on your server or not.
- ; http://www.php.net/manual/en/ini.core.php#ini.expose-php
--expose_php = On
-+expose_php = Off
- 
- ;;;;;;;;;;;;;;;;;;;
- ; Resource Limits ;
-@@ -726,7 +726,7 @@
- 
- ; Maximum size of POST data that PHP will accept.
- ; http://www.php.net/manual/en/ini.core.php#ini.post-max-size
--post_max_size = 8M
-+post_max_size = 20M
- 
- ; Magic quotes are a preprocessing feature of PHP where PHP will attempt to
- ; escape any character sequences in GET, POST, COOKIE and ENV data which might
-@@ -875,7 +875,7 @@
- 
- ; Maximum allowed size for uploaded files.
- ; http://www.php.net/manual/en/ini.core.php#ini.upload-max-filesize
--upload_max_filesize = 2M
-+upload_max_filesize = 20M
- 
- ;;;;;;;;;;;;;;;;;;
- ; Fopen wrappers ;
-EOF
-	/etc/init.d/httpd restart
-fi
-################################################################################
-# MySQL
-################################################################################
-if yes_no "Nainstalovat MySQL server" ; then
-	echo "Vyberte adresar pro ukladani dat (parametr datadir)"
-	echo "[0] /var/lib/mysql"
-	echo "[1] /srv/mysql"
-	read -p "nebo zadejte cestu rucne: " DATADIR
-        [ "\$DATADIR" = "0" ] && DATADIR=/var/lib/mysql
-        [ "\$DATADIR" = "1" ] && DATADIR=/srv/mysql
-	yum -y install mysql-server mysqltuner
-	chkconfig mysqld on
-	patch /etc/my.cnf << EOF
---- /etc/my.cnf~        2011-10-24 11:18:54.524441133 +0200
-+++ /etc/my.cnf 2011-10-24 11:20:36.204446489 +0200
-@@ -1,9 +1,21 @@
- [mysqld]
--datadir=/var/lib/mysql
-+datadir=\$DATADIR
- socket=/var/lib/mysql/mysql.sock
- user=mysql
- # Disabling symbolic-links is recommended to prevent assorted security risks
- symbolic-links=0
-+expire_logs_days=15
-+innodb_file_per_table
-+log-bin=mysql-bin
-+log-error=/var/log/mysqld.log
-+log-queries-not-using-indexes
-+log-slow-queries=\$DATADIR/mysqld-slow.log
-+max_binlog_size=200M
-+max_heap_table_size=32M
-+query_cache_size=16M
-+table_cache=128
-+thread_cache_size=4
-+tmp_table_size=64M
- 
- [mysqld_safe]
- log-error=/var/log/mysqld.log
-EOF
-	[ -n "\$DATADIR" ] && [ ! -e "\$DATADIR" ] && [ "\$DATADIR" != "/var/lib/mysql" ] && mkdir -p \$DATADIR && mv -T /var/lib/mysql \$DATADIR
-	/etc/init.d/mysqld start
-	MYSQL_PASSWORD=\`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"\`
-	echo "UPDATE user SET Password = PASSWORD('\$MYSQL_PASSWORD') WHERE User = 'root' ; FLUSH PRIVILEGES" | mysql -s mysql
-	cat >> /root/.my.cnf << EOF
-[mysql]
-password=\$MYSQL_PASSWORD
-EOF
-	cat >> /etc/logrotate.d/mysqld << EOF
-\$DATADIR/mysqld-slow.log {
-	create 660 mysql mysql
-	missingok
-	copytruncate
-	notifempty
-	daily
-	rotate 31
-}
-EOF
-	chmod go-rwx /root/.my.cnf
-	NRPE_MYSQL=1
-fi
-################################################################################
-# phpMyAdmin
-################################################################################
-if yes_no "Nainstalovat phpMyAdmin" ; then
-	yum -y install phpMyAdmin
-	sed -i "1s/\(.*\)/<IfModule mod_ssl.c>\n\1/;\\\$a</IfModule>" /etc/httpd/conf.d/phpMyAdmin.conf
-        sed -i "/<Directory \/usr\/share\/phpMyAdmin\/>/,/<\/Directory>/s/Allow from 127.0.0.1/Allow from 158.196.0.0\/16\n   Allow from 2001:718:1001::\/48/" /etc/httpd/conf.d/phpMyAdmin.conf
-	BLOWFISH_SECRET=\`apg -n 1 -m 8 -x 8 | sed "s/[^0-9A-Za-z]//g"\`
-	cp -f /usr/share/phpMyAdmin/config.sample.inc.php /etc/phpMyAdmin/config.inc.php
-	ln -s /etc/phpMyAdmin/config.inc.php /usr/share/phpMyAdmin/config.inc.php
-	sed -i "s/\(.*blowfish_secret.*'\)\('.*YOU MUST FILL IN THIS.*\)/\1\$BLOWFISH_SECRET\2/" /etc/phpMyAdmin/config.inc.php
-	apachectl -t && apachectl -k graceful
-fi
-################################################################################
-# scponly
-################################################################################
-if yes_no "Nainstalovat a nastavit scponly pro LDAP uzivatele" ; then
-	read -p "Adresar, kam maji byt LDAP uzivatele presmerovani: " HOMEDIRECTORY
-	yum -y install scponly
-	chmod +x /usr/bin/scponly # FIXME: chyba v baliku
-	cat >> /etc/nslcd.conf << EOF
-map     passwd homeDirectory    "\$HOMEDIRECTORY"
-map     passwd loginShell       "/usr/bin/scponly"
-EOF
-	/etc/init.d/nslcd restart
-	/etc/init.d/sshd reload
-fi
-################################################################################
-# NRPE
-################################################################################
-if yes_no "Nainstalovat NRPE" ; then
-	yum -y install nagios-nrpe
-	chkconfig nrpe on
-	sed -i "s/\(allowed_hosts=[^	 ]*\)/\1,158.196.149.136,158.196.149.137/" /etc/nagios/nrpe.cfg
-	uname -p | grep -q "64\$" && LIBDIR="lib64" || LIBDIR="lib"
-	cat >> /etc/nagios/nrpe.cfg << EOF
-command[check_disk]=/usr/\$LIBDIR/nagios/plugins/check_disk -w 20% -c 10% -A
-EOF
-	[ "\$NRPE_MYSQL" = "1" ] && echo "command[check_mysql]=/usr/\$LIBDIR/nagios/plugins/check_mysql -u nagios" >> /etc/nagios/nrpe.cfg && \
-	echo "CREATE USER 'nagios' ; FLUSH PRIVILEGES" | mysql -s mysql
-	/etc/init.d/nrpe start
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# NRPE\n-A INPUT -s 158.196.149.136 -m state --state NEW -m tcp -p tcp --dport 5666 -j ACCEPT\n\1/" /etc/sysconfig/iptables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# NRPE\n-A INPUT -s 2001:718:1001:149::136 -m state --state NEW -m tcp -p tcp --dport 5666 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
-fi
-################################################################################
-# Zalohovani HP Data Protectorem
-################################################################################
-if yes_no "Pripravit server pro zalohovani" ; then
-	cat >> /root/.ssh/authorized_keys << EOF
-ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAx7m1DBPwNo9qyUGyv7xWsdJD/sTGQsyQRj+/RN5+F0eOtu8EVYBWSB5qXr7nb/hVZgX42lV8ewrLAj+P+c7lSBb8AJieASh+/vK/Eek/Xmbs7rHAWiCDNZtIdX8umLo/7TmRZeucTGArm15pLwatBA1vV6fuQk1LyV1HqRk6suPEnNJbCHE9vtZvgfmKHb6aPeyZUlYOODb9S5KfLOpdlMacaLoHFSPDznKoqOf/SrCprU+sTI5g6kCzzvWgb78deOoWhFeqdrtv3PcFrYxxGxMN4tnG9GbeWVmWwpIbzK9BE5gZ5o8OI0D4G30281qwBAHFsCYgFZjmAjmvGYSa6Q== hp_data_protector
-EOF
-	yum -y install xinetd
-	sed -i "s|\(.*personal-agent.*5555/tcp.*\)|#\1|" /etc/services
-	cat >> /etc/services << EOF
-
-omni            5555/tcp                # HP Data Protector
-EOF
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# OMNI\n-A INPUT -s 158.196.2.3 -m state --state NEW -m tcp -p tcp --dport 5555 -j ACCEPT\n\1/" /etc/sysconfig/iptables
-fi
-################################################################################
-# SNMP
-################################################################################
-if yes_no "Nainstalovat SNMP" ; then
-	ROCOMMUNITY=\`apg -n 1 -m 12 -x 12 | sed "s/[^0-9A-Za-z]//g"\`
-	yum -y install net-snmp net-snmp-utils
-	chkconfig snmpd on
-	cat > /etc/snmp/snmpd.conf << EOF
-rocommunity  \$ROCOMMUNITY
-agentAddress udp:161,udp6:[::1]:161
-EOF
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# SNMP\n-A INPUT -s 158.196.149.152 -m state --state NEW -m udp -p udp --dport 161 -j ACCEPT\n\1/" /etc/sysconfig/iptables
-	sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# SNMP\n-A INPUT -s 2001:718:1001:149::152 -m state --state NEW -m udp -p udp --dport 161 -j ACCEPT\n\1/" /etc/sysconfig/ip6tables
-	/etc/init.d/snmpd start
-fi
-################################################################################
-# VMware Tools
-################################################################################
-if yes_no "Nainstalovat VMware Tools" ; then
-	read -p "Pripojte VMware Tools instalator ve vSphere konzoli a potvrdte stiskem <ENTER>." FOO
-	VMWARE_TMPDIR=\`mktemp -d --tmpdir "VMware_Tools_Install-XXXXXXXX"\`
-	[ -n "\$VMWARE_TMPDIR" ] && [ -d "\$VMWARE_TMPDIR" ] && mkdir \$VMWARE_TMPDIR/mnt && mount /dev/cdrom \$VMWARE_TMPDIR/mnt
-	tar -xC \$VMWARE_TMPDIR -f \$VMWARE_TMPDIR/mnt/VMwareTools-*.tar.gz
-	\$VMWARE_TMPDIR/vmware-tools-distrib/vmware-install.pl --default
-	umount \$VMWARE_TMPDIR/mnt && rm -rf \$VMWARE_TMPDIR
-fi
-################################################################################
-# Restart firewallu
-################################################################################
-if yes_no "Restartovat firewall" ; then
-	/etc/init.d/iptables restart
-	/etc/init.d/ip6tables restart
-fi
-################################################################################
-# Finalni revize konfigurace
-################################################################################
-if yes_no "Nainstalovat a spustit nastroj pro inspekci systemu" ; then
-	wget -q --no-check-certificate -P /tmp "https://ca.svetdoma.cz/svetdoma_cz-ca.crt" && \
-	openssl x509 -in /tmp/svetdoma_cz-ca.crt -text >> /etc/pki/tls/certs/ca-bundle.crt && \
-	rm -f /tmp/svetdoma_cz-ca.crt
-	wget -q -P /root/bin "https://github.com/filipvalder/inspector/raw/trachta/trachta.sh" && \
-        wget -q -P /tmp "https://github.com/filipvalder/inspector/raw/trachta/trachta.sh.signature" "https://ca.svetdoma.cz/filip@valder_cz.pub" && \
-	openssl dgst -sha256 -verify /tmp/filip@valder_cz.pub -signature /tmp/trachta.sh.signature /root/bin/trachta.sh && \
-	chmod 700 /root/bin/trachta.sh && \
-	/root/bin/trachta.sh && \
-	rm -f /tmp/filip@valder_cz.pub /tmp/trachta.sh.signature
-fi
-sed -i "/FIRST-ROOT-LOGIN-SCRIPT-BEGIN/,/[F]IRST-ROOT-LOGIN-SCRIPT-END/d" /root/.bashrc
-# FIRST-ROOT-LOGIN-SCRIPT-END
-EOF_BASHRC
+chkconfig nscd on
+chkconfig nslcd on
+/etc/init.d/nscd start
+/etc/init.d/nslcd start
+/etc/init.d/sshd reload
 
 # Navrat na TTY1
 chvt 1
