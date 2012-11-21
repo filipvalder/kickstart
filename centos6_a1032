@@ -2,7 +2,7 @@
 ################################################################################
 #
 # Autor:		Filip Valder
-# Kickstart (KS) pro:	CentOS-6.0-x86_64-LiveDVD.iso
+# Kickstart (KS) pro:	CentOS-6.3-x86_64-minimal.iso
 # Instalace:		1) Nakopirovat tento KS skript na web.
 #			2) Pripojit ISO (viz vyse) a nabootovat z nej.
 #			3) V bootovacim menu po stisknuti <TAB> pridat
