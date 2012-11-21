@@ -30,7 +30,7 @@ lang cs_CZ.UTF-8
 keyboard cs
 network --device eth0 --bootproto dhcp
 firewall --service=ssh
-rootpw --iscrypted $6$rDhDP5jWWwmnWBFC$pPt3OXTnWPK7pVE07Aq4PImrNLxPnMJ7rWOKme7uIPI/2t5V01.EwgLM61WRwLbabKEs5rxkLECl6RYTR9gNI.
+rootpw --iscrypted $6$a1032$VxYDRjSS.qjfo7Z7aQ2Z2JLnJWw/Trj5yb6e1PawbUQhfwyjXB0oYzXS0pPxw4Jv6OiiYV9GQuRlBmx2xKR3..
 authconfig --enableshadow --passalgo=sha512
 selinux --permissive
 timezone --utc Europe/Prague
