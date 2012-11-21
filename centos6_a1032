@@ -2,7 +2,7 @@
 ################################################################################
 #
 # Autor:		Filip Valder
-# Kickstart (KS) pro:	CentOS-6.2-x86_64-minimal
+# Kickstart (KS) pro:	CentOS-6.0-x86_64-LiveDVD.iso
 # Instalace:		1) Nakopirovat tento KS skript na web.
 #			2) Pripojit ISO (viz vyse) a nabootovat z nej.
 #			3) V bootovacim menu po stisknuti <TAB> pridat
@@ -28,7 +28,7 @@ url --url=http://merlin.fit.vutbr.cz/mirrors/centos/6/os/x86_64
 cmdline
 lang cs_CZ.UTF-8
 keyboard cz-lat2
-network --device em1 --bootproto dhcp
+network --device eth0 --bootproto dhcp
 firewall --service=ssh
 rootpw --iscrypted $6$a1032$VxYDRjSS.qjfo7Z7aQ2Z2JLnJWw/Trj5yb6e1PawbUQhfwyjXB0oYzXS0pPxw4Jv6OiiYV9GQuRlBmx2xKR3..
 authconfig --enableshadow --passalgo=sha512
@@ -132,7 +132,7 @@ chvt 6
 ################################################################################
 # Jeste jednou si dame dhclienta
 ################################################################################
-dhclient em1
+dhclient eth0
 
 ################################################################################
 # Pridani repozitaru
