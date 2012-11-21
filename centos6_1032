@@ -45,7 +45,6 @@ reboot
 ################################################################################
 ################################################################################
 ignoredisk --only-use=sda
-clearpart --linux --drives=sda
 part pv.01 --grow --size 100000 --ondisk=sda
 part /boot --fstype=ext4 --size=500
 volgroup VolGroup --pesize=75000 pv.01
