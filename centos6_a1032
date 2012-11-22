@@ -269,15 +269,6 @@ diff -ur /etc~/nsswitch.conf /etc/nsswitch.conf
 +automount:  files ldap
  aliases:    files nisplus
  
-diff -ur /etc~/openldap/ldap.conf /etc/openldap/ldap.conf
---- /etc~/openldap/ldap.conf	2011-06-25 12:30:46.000000000 +0200
-+++ /etc/openldap/ldap.conf	2011-08-29 13:29:00.500448283 +0200
-@@ -11,3 +11,5 @@
- #SIZELIMIT	12
- #TIMELIMIT	15
- #DEREF		never
-+URI ldaps://ldap.vsb.cz:636/
-+TLS_REQCERT never
 diff -ur /etc~/pam.d/fingerprint-auth /etc/pam.d/fingerprint-auth
 --- /etc~/pam.d/fingerprint-auth	2011-08-29 13:22:02.294661068 +0200
 +++ /etc/pam.d/fingerprint-auth	2011-08-29 13:29:00.718446718 +0200
@@ -499,45 +490,64 @@ diff -ur /etc~/pam_ldap.conf /etc/pam_ldap.conf
  #pam_sasl_mech DIGEST-MD5
 +uri ldaps://ldap.vsb.cz:636/
 +ssl on
-diff -ur /etc~/sysconfig/authconfig /etc/sysconfig/authconfig
---- /etc~/sysconfig/authconfig	2011-08-29 13:22:02.319662809 +0200
-+++ /etc/sysconfig/authconfig	2011-08-29 13:29:00.742441190 +0200
-@@ -4,21 +4,21 @@
- USESSSDAUTH=no
- USESHADOW=yes
- USEWINBIND=no
--USEDB=no
-+USESSSD=no
-+PASSWDALGORITHM=sha512
- FORCELEGACY=no
- USEFPRINTD=yes
-+USEHESIOD=no
- FORCESMARTCARD=no
--PASSWDALGORITHM=sha512
--USELDAPAUTH=no
--USEPASSWDQC=no
--USELOCAUTHORIZE=yes
-+USELDAPAUTH=yes
-+USELDAP=yes
- USECRACKLIB=yes
- USEWINBINDAUTH=no
- USESMARTCARD=no
--USELDAP=no
-+USELOCAUTHORIZE=yes
- USENIS=no
- USEKERBEROS=no
- USESYSNETAUTH=no
- USESMBAUTH=no
--USESSSD=no
--USEHESIOD=no
-+USEDB=no
-+USEPASSWDQC=no
 EOF
+cat >> /etc/sysconfig/authconfig << EOF
+CACHECREDENTIALS=yes
+FORCELEGACY=no
+FORCESMARTCARD=no
+IPADOMAINJOINED=no
+IPAV2NONTP=no
+PASSWDALGORITHM=sha512
+USECRACKLIB=yes
+USEDB=no
+USEFPRINTD=no
+USEHESIOD=no
+USEIPAV2=no
+USEKERBEROS=no
+USELDAPAUTH=yes
+USELDAP=yes
+USELOCAUTHORIZE=yes
+USEMKHOMEDIR=no
+USENIS=no
+USEPAMACCESS=no
+USEPASSWDQC=no
+USESHADOW=yes
+USESMARTCARD=no
+USESSSDAUTH=no
+USESSSD=no
+USESYSNETAUTH=no
+USEWINBINDAUTH=no
+USEWINBIND=no
+EOF
+cat >> /etc/openldap/ldap.conf << EOF
+URI ldaps://ldap.vsb.cz:636/
+TLS_REQCERT never
+EOF
+
+chkconfig sssd on
 chkconfig nscd on
 chkconfig nslcd on
+/etc/init.d/sssd start
 /etc/init.d/nscd start
 /etc/init.d/nslcd start
 /etc/init.d/sshd reload
+
+################################################################################
+# Povoleni Xek
+################################################################################
+sed -i "s/id:3:initdefault:/id:5:initdefault:/" /etc/inittab
+
+################################################################################
+# Vytvoreni uctu student
+################################################################################
+useradd student
+passwd -d student
+
+################################################################################
+# GRUB
+################################################################################
+sed -i "s/default=0/default=1/" /etc/inittab
+sed -i "s/title Other/title Microsoft Windows/" /etc/inittab
 
 # Navrat na TTY1
 chvt 1
