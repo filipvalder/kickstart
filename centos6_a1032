@@ -524,10 +524,8 @@ URI ldaps://ldap.vsb.cz:636/
 TLS_REQCERT never
 EOF
 
-chkconfig sssd on
 chkconfig nscd on
 chkconfig nslcd on
-/etc/init.d/sssd start
 /etc/init.d/nscd start
 /etc/init.d/nslcd start
 /etc/init.d/sshd reload
