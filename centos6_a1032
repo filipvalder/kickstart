@@ -29,7 +29,6 @@ cmdline
 lang cs_CZ.UTF-8
 keyboard cz-us-qwertz
 network --device em1 --bootproto dhcp
-firewall --service=ssh
 rootpw --iscrypted $6$a1032$VxYDRjSS.qjfo7Z7aQ2Z2JLnJWw/Trj5yb6e1PawbUQhfwyjXB0oYzXS0pPxw4Jv6OiiYV9GQuRlBmx2xKR3..
 authconfig --enableshadow --passalgo=sha512
 selinux --permissive
@@ -534,6 +533,7 @@ chkconfig nslcd on
 # Povoleni Xek
 ################################################################################
 sed -i "s/id:3:initdefault:/id:5:initdefault:/" /etc/inittab
+sed -i "/DisallowTCP/,/default/s/false/true/" /etc/gdm/gdm.schemas
 
 ################################################################################
 # Vytvoreni uctu student
@@ -546,6 +546,13 @@ passwd -d student
 ################################################################################
 sed -i "s/default=0/default=1/" /etc/inittab
 sed -i "s/title Other/title Microsoft Windows/" /etc/inittab
+
+################################################################################
+# Firewall
+################################################################################
+sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# SPC X pristup\n-A INPUT -s 158.196.32.0/24 -m state --state NEW -m tcp -p tcp --dport 6000 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+sed -i "s/\(.*-A INPUT -j REJECT --reject-with.*\)/# SSH z CITu\n-A INPUT -s 158.196.158.0/24 -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT\n\1/" /etc/sysconfig/iptables
+/etc/init.d/iptables restart
 
 # Navrat na TTY1
 chvt 1
