@@ -533,7 +533,6 @@ chkconfig nslcd on
 # Povoleni Xek
 ################################################################################
 sed -i "s/id:3:initdefault:/id:5:initdefault:/" /etc/inittab
-sed -i "/DisallowTCP/,/default/s/false/true/" /etc/gdm/gdm.schemas
 
 ################################################################################
 # Vytvoreni uctu student
