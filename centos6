@@ -44,10 +44,9 @@ reboot
 #
 ################################################################################
 ################################################################################
-ignoredisk --only-use=sda
 clearpart --linux --drives=sda
 part pv.01 --grow --size 7500 --ondisk=sda
-part /boot --fstype=ext4 --size=500
+part /boot --fstype=ext4 --size=500 --ondisk=sda
 volgroup VolGroup --pesize=4096 pv.01
 logvol / --fstype=ext4 --name=lv_root --vgname=VolGroup --grow --size=1024 --maxsize=51200
 logvol swap --name=lv_swap --vgname=VolGroup --grow --size=1008 --maxsize=2016
