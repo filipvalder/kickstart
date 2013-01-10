@@ -311,15 +311,6 @@ diff -ur /etc~/nsswitch.conf /etc/nsswitch.conf
 +automount:  files ldap
  aliases:    files nisplus
  
-diff -ur /etc~/openldap/ldap.conf /etc/openldap/ldap.conf
---- /etc~/openldap/ldap.conf	2011-06-25 12:30:46.000000000 +0200
-+++ /etc/openldap/ldap.conf	2011-08-29 13:29:00.500448283 +0200
-@@ -11,3 +11,5 @@
- #SIZELIMIT	12
- #TIMELIMIT	15
- #DEREF		never
-+URI ldaps://ldap.vsb.cz:636/
-+TLS_REQCERT never
 diff -ur /etc~/pam.d/fingerprint-auth /etc/pam.d/fingerprint-auth
 --- /etc~/pam.d/fingerprint-auth	2011-08-29 13:22:02.294661068 +0200
 +++ /etc/pam.d/fingerprint-auth	2011-08-29 13:29:00.718446718 +0200
