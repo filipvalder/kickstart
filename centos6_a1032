@@ -522,7 +522,6 @@ cat >> /etc/openldap/ldap.conf << EOF
 URI ldaps://ldap.vsb.cz:636/
 TLS_REQCERT never
 EOF
-
 chkconfig nscd on
 chkconfig nslcd on
 /etc/init.d/nscd start

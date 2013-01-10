@@ -2,7 +2,7 @@
 ################################################################################
 #
 # Autor:		Filip Valder
-# Kickstart (KS) pro:	CentOS-6.2-x86_64-minimal
+# Kickstart (KS) pro:	CentOS-6.3-x86_64-minimal
 # Instalace:		1) Nakopirovat tento KS skript na web.
 #			2) Pripojit ISO (viz vyse) a nabootovat z nej.
 #			3) V bootovacim menu po stisknuti <TAB> pridat
@@ -541,39 +541,38 @@ diff -ur /etc~/pam_ldap.conf /etc/pam_ldap.conf
  #pam_sasl_mech DIGEST-MD5
 +uri ldaps://ldap.vsb.cz:636/
 +ssl on
-diff -ur /etc~/sysconfig/authconfig /etc/sysconfig/authconfig
---- /etc~/sysconfig/authconfig	2011-08-29 13:22:02.319662809 +0200
-+++ /etc/sysconfig/authconfig	2011-08-29 13:29:00.742441190 +0200
-@@ -4,21 +4,21 @@
- USESSSDAUTH=no
- USESHADOW=yes
- USEWINBIND=no
--USEDB=no
-+USESSSD=no
-+PASSWDALGORITHM=sha512
- FORCELEGACY=no
- USEFPRINTD=yes
-+USEHESIOD=no
- FORCESMARTCARD=no
--PASSWDALGORITHM=sha512
--USELDAPAUTH=no
--USEPASSWDQC=no
--USELOCAUTHORIZE=yes
-+USELDAPAUTH=yes
-+USELDAP=yes
- USECRACKLIB=yes
- USEWINBINDAUTH=no
- USESMARTCARD=no
--USELDAP=no
-+USELOCAUTHORIZE=yes
- USENIS=no
- USEKERBEROS=no
- USESYSNETAUTH=no
- USESMBAUTH=no
--USESSSD=no
--USEHESIOD=no
-+USEDB=no
-+USEPASSWDQC=no
+EOF
+	cat >> /etc/sysconfig/authconfig << EOF
+CACHECREDENTIALS=yes
+FORCELEGACY=no
+FORCESMARTCARD=no
+IPADOMAINJOINED=no
+IPAV2NONTP=no
+PASSWDALGORITHM=sha512
+USECRACKLIB=yes
+USEDB=no
+USEFPRINTD=no
+USEHESIOD=no
+USEIPAV2=no
+USEKERBEROS=no
+USELDAPAUTH=yes
+USELDAP=yes
+USELOCAUTHORIZE=yes
+USEMKHOMEDIR=no
+USENIS=no
+USEPAMACCESS=no
+USEPASSWDQC=no
+USESHADOW=yes
+USESMARTCARD=no
+USESSSDAUTH=no
+USESSSD=no
+USESYSNETAUTH=no
+USEWINBINDAUTH=no
+USEWINBIND=no
+EOF
+	cat >> /etc/openldap/ldap.conf << EOF
+URI ldaps://ldap.vsb.cz:636/
+TLS_REQCERT never
 EOF
 	chkconfig nscd on
 	chkconfig nslcd on
